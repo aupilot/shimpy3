@@ -1,0 +1,260 @@
+from typing import Optional
+import cv2
+from pytorch_lightning import LightningDataModule
+from torch.utils.data import Dataset, DataLoader, random_split, ConcatDataset
+import torch
+import numpy as np
+import pandas as pd
+from torchvision import datasets, transforms
+from sklearn.model_selection import StratifiedKFold
+import albumentations as A
+
+input_dir = "E:\\Chimpact\\"
+# input_dir = "/Users/kir/Datasets/Shimpact/"     # don't use the ~ shortcut for /users/kir !
+
+labels_file = input_dir + "train_labels.csv"
+meta_file = input_dir + "train_metadata.csv"
+
+class_bins = np.array([  0,   5,  10,  15,  20,  25,  30,  35,  40,  45,  50,  55,  60,
+                    65,  70,  75,  80,  90, 100, 110, 120, 130, 135, 140, 150, 160,
+                    170, 180, 190, 200, 210, 220, 230, 240, 250])
+
+
+class ShimpyDataModule(LightningDataModule):
+
+    def __init__(self, fold_no: 0, folds: 2, image_size=None, batch_size: int=32, num_workers=4):
+        super().__init__()
+        self.num_workers = num_workers
+        self.batch_size = batch_size
+        self.fold_no = fold_no
+        self.folds = folds
+        self.image_size = image_size
+
+    # def prepare_data(self):
+    #     # called only on 1 GPU
+    #     download_dataset()
+    #     tokenize()
+    #     build_vocab()
+
+    def setup(self, stage: Optional[str] = None):
+        test_fold = self.fold_no + 1
+        if test_fold >= self.folds:
+            test_fold = 0
+
+        train_datasets = []
+        for i in range(self.folds):
+            if i is not test_fold:
+                new_ds = ShimpyDataset(fold_no=self.fold_no, folds=self.folds, transforms=None, test=False, image_size=self.image_size)
+                train_datasets.append(new_ds)
+
+        self.train_dataset = ConcatDataset(train_datasets)
+        self.valid_dataset = ShimpyDataset(fold_no=test_fold, folds=self.folds, transforms=None, test=False, image_size=self.image_size)
+        # self.test_dataset = self.valid_dataset.copy()  # do we need to split validation into test and valid??
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset,
+                          batch_size=self.batch_size,
+                          shuffle=True,
+                          pin_memory=True,
+                          drop_last=True,
+                          num_workers=self.num_workers,
+                          collate_fn=self.collate_fn,
+                          )
+
+    def val_dataloader(self):
+        return DataLoader(self.valid_dataset,
+                          batch_size=self.batch_size,
+                          pin_memory=True,
+                          shuffle=False,
+                          num_workers=self.num_workers,
+                          collate_fn=self.collate_fn,
+                          )
+
+    def test_dataloader(self):
+        return DataLoader(self.valid_dataset, batch_size=self.batch_size)
+
+    # @staticmethod
+    def collate_fn(self, batch):
+        # images, targets, image_ids = tuple(zip(*batch))
+        # images = torch.stack(images)
+        # images = images.float()
+        images, targets = tuple(zip(*batch))
+        images = torch.stack(images)
+        images = images.permute(0, 3, 1, 2)
+
+        image_size = [512, 512]
+        boxes = [target["bboxes"].float() for target in targets]
+        labels = [target["labels"].float() for target in targets]
+        img_size = torch.tensor([image_size for target in targets]).float()
+        img_scale = torch.tensor([1.0 for target in targets]).float()
+
+        annotations = {
+            "bbox": boxes,
+            "cls": labels,
+            "img_size": img_size,
+            "img_scale": img_scale,
+        }
+
+        return images, annotations
+
+
+# load the labels and metadata. Split into folds taking into account the place the video was taken
+class ShimpyDataset(Dataset):
+
+    def __init__(self, fold_no=0, folds=2, transforms=None, test=False, image_size=None ):
+        super().__init__()
+        self.transforms = transforms
+        self.test = test
+        self.image_size = image_size
+        if test:
+            self.image_dir = "train_images/"
+            # self.image_dir = "test_images/"
+        else:
+            self.image_dir = "train_images/"
+
+        meta = pd.read_csv(meta_file, skipinitialspace=True)
+        labels = pd.read_csv(labels_file, skipinitialspace=True)
+
+        # drop all frames with nans
+        idx_nans = meta[pd.isnull(meta['x1'])].index
+        labels.drop(idx_nans, inplace=True)
+        meta.drop(idx_nans, inplace=True)
+
+        # TODO: test if we should drop them? @@@@@@@@@@@@@@@@
+        # drop all frames with probability less than 0.1
+        idx_nans = meta[meta['probability'] < 0.1].index
+        labels.drop(idx_nans, inplace=True)
+        meta.drop(idx_nans, inplace=True)
+
+        skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=73)
+
+        df_folds = meta[['video_id']].copy()
+        df_folds.loc[:, 'frame_count'] = 1                  # добавили столбец frame_count == 1 везде
+        df_folds = df_folds.groupby('video_id').count()     # посчитали сколько строк с одного видео
+        df_folds.loc[:, 'source'] = meta[['video_id', 'site_id']].groupby('video_id').min()['site_id']
+        df_folds.loc[:, 'stratify_group'] = np.char.add(
+            df_folds['source'].values.astype(str),
+            df_folds['frame_count'].apply(lambda x: f'_{x // 1}').values.astype(str)
+        )
+        df_folds.loc[:, 'fold'] = 0
+
+        if folds > 1:
+            for fold_number, (train_index, val_index) in enumerate(
+                    skf.split(X=df_folds.index, y=df_folds['stratify_group'])):
+                df_folds.loc[df_folds.iloc[val_index].index, 'fold'] = fold_number
+
+            mask = df_folds[df_folds['fold'] == fold_no].index
+
+            self.fold_meta = None
+            for mmm in mask:
+                if self.fold_meta is None:
+                    self.fold_meta = meta[meta['video_id'] == mmm].copy()
+                    self.fold_labels = labels[labels['video_id'] == mmm].copy()
+                else:
+                    self.fold_meta = self.fold_meta.append(meta[meta['video_id'] == mmm])
+                    self.fold_labels = self.fold_labels.append(labels[labels['video_id'] == mmm])
+
+            self.fold_labels.reset_index(inplace=True)
+            self.fold_meta.reset_index(inplace=True)
+
+        else:
+            self.fold_labels = labels.copy()
+            self.fold_meta = meta.copy()
+
+        # shuffle if not test
+        if not test:
+            shuffled_idx = np.random.permutation(self.fold_labels.index)
+            self.fold_labels = self.fold_labels.reindex(shuffled_idx)
+            self.fold_meta = self.fold_meta.reindex(shuffled_idx)
+
+        self.transform = A.Compose([
+            A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
+            A.HorizontalFlip(p=0.5),
+            A.RandomBrightnessContrast(p=0.2),
+        ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
+
+
+    def load_image_and_box(self, index):
+
+        if isinstance(index, torch.Tensor):
+            row = self.fold_labels.iloc[index.item()]
+        else:
+            row = self.fold_labels.iloc[index]
+
+        image_file = "img_" + str.split(row.video_id, '.')[0] + f"_{row.time:04d}.png"
+
+        image = cv2.imread(input_dir+self.image_dir+image_file, cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+        image /= 255.0
+
+        # return distance as a class label
+        ## class labels start from 1 and the background class = -1
+        dist = np.where(class_bins == int(row.distance*10))[0]+1
+        if dist.size == 0:
+            raise Exception('Something wrong with data! The distance does not fit to bins')
+
+        details = self.fold_meta[(self.fold_meta['video_id'] == row.video_id) & (self.fold_meta['time'] == row.time)]
+
+        boxes = details[['x1', 'y1', 'x2', 'y2']].values    # swap x/y to match torch expectations
+        boxes[:, 0] *= image.shape[1]
+        boxes[:, 2] *= image.shape[1]
+        boxes[:, 1] *= image.shape[0]
+        boxes[:, 3] *= image.shape[0]
+
+        transformed = self.transform(image=image, bboxes=boxes, category_ids=dist)
+
+        return transformed
+        # return image, boxes, dist
+
+    def __getitem__(self, idx: int):
+        sample = self.load_image_and_box(idx)
+        # return sample
+        # return sample['image'], sample['bboxes'], sample['category_ids']
+
+        # target['boxes'] = [[np.int32(x1),np.int32(y1),np.int32(x2),np.int32(y2)] for x1,y1,x2,y2 in sample['bboxes']]
+
+        # target = {'labels': np.array(sample['category_ids']),
+        #           'boxes': np.array(sample['bboxes']).astype('int32')}
+        target = {'labels': torch.tensor(np.array(sample['category_ids'],dtype='int32')),
+                  'bboxes': torch.tensor(np.array(sample['bboxes']).astype('float32'))}
+
+        # target = {'labels': sample['category_ids'],
+        #           'boxes': np.array(sample['bboxes']).astype('int32').T}
+        return torch.tensor(sample['image']),target
+
+    def __len__(self) -> int:
+        return len(self.fold_labels)
+
+
+def test_dataset():
+    ds = ShimpyDataset(folds=2, fold_no=0, test=False,image_size=[256, 256])
+    print(len(ds))
+    # sample = ds[45]
+    # [*boxes] = sample['bboxes']
+    # image = sample['image']
+
+    # [*boxes] = sample[1]
+    # image = sample[0]
+    image, target = ds[45]
+
+    # for box in target['boxes']:
+    box = target['boxes']
+    cv2.rectangle(image, (int(box[0,0]), int(box[0,1])), (int(box[0,2]), int(box[0,3])), (0, 1, 0), 2)
+
+    cv2.imshow(f"class {target['labels'][0]}", image)
+    # cv2.imshow(f"class {sample['category_ids'][0].item()}", image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def test_lit_datamodule():
+    ldm = ShimpyDataModule(0,2, batch_size=4, image_size=[512, 512])
+    ldm.setup()
+    dataloader = ldm.train_dataloader()
+    image, target = next(iter(dataloader))
+    print(image.shape)
+
+
+if __name__ == '__main__':
+    test_lit_datamodule()
+    # test_dataset()

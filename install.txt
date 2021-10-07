@@ -1,0 +1,7 @@
+#pip install https://download.lfd.uci.edu/pythonlibs/y2rycu7g/numpy-1.21.2+mkl-cp37-cp37m-win_amd64.whl
+pip install https://download.lfd.uci.edu/pythonlibs/y2rycu7g/numpy-1.20.3+mkl-cp37-cp37m-win_amd64.whl
+pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 torchaudio===0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
+pip install https://download.lfd.uci.edu/pythonlibs/y2rycu7g/opencv_python-4.5.3-cp37-cp37m-win_amd64.whl
+pip install scikit-learn matplotlib pytorch_lightning
+pip install pandas albumentations effdet ensemble_boxes
+
