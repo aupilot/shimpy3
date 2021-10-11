@@ -4,6 +4,7 @@ from functools import singledispatch
 import numpy as np
 import torch
 from albumentations.pytorch import ToTensorV2
+# from effdet import create_model
 from fastcore.dispatch import typedispatch
 from pytorch_lightning import LightningModule
 from pytorch_lightning.core.decorators import auto_move_data
@@ -55,13 +56,15 @@ def get_valid_transforms(target_img_size=512):
 class EfficientDetModel(LightningModule):
     def __init__(
             self,
-            num_classes=1,
+            num_classes=35,
             img_size=512,
             prediction_confidence_threshold=0.2,
             learning_rate=0.0002,
             wbf_iou_threshold=0.44,
+            skip_box_thr=0.1,
             inference_transforms=None,
-            model_architecture='tf_efficientnetv2_l',
+            model_architecture='tf_efficientdet_d0',
+            # model_architecture='tf_efficientnetv2_l',
     ):
         super().__init__()
         if inference_transforms is None:
@@ -70,6 +73,7 @@ class EfficientDetModel(LightningModule):
         self.model = create_model(
             num_classes, img_size, architecture=model_architecture
         )
+        self.skip_box_thr = skip_box_thr
         self.prediction_confidence_threshold = prediction_confidence_threshold
         self.lr = learning_rate
         self.wbf_iou_threshold = wbf_iou_threshold
@@ -134,6 +138,9 @@ class EfficientDetModel(LightningModule):
 
         # return {'loss': outputs["loss"], 'batch_predictions': batch_predictions}
         return {'loss': outputs["loss"]}
+
+    def predicts_step(self, batch):
+        return self(batch)
 
     @typedispatch
     def predict(self, images: List):
@@ -227,7 +234,7 @@ class EfficientDetModel(LightningModule):
             )
 
         predicted_bboxes, predicted_class_confidences, predicted_class_labels = run_wbf(
-            predictions, image_size=self.img_size, iou_thr=self.wbf_iou_threshold
+            predictions, image_size=self.img_size, iou_thr=self.wbf_iou_threshold, skip_box_thr=self.skip_box_thr
         )
 
         return predicted_bboxes, predicted_class_confidences, predicted_class_labels

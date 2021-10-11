@@ -9,11 +9,16 @@ from torchvision import datasets, transforms
 from sklearn.model_selection import StratifiedKFold
 import albumentations as A
 
+from extra_transforms import BBoxSafeRandomCrop, Random256BBoxSafeCrop
+
 input_dir = "E:\\Chimpact\\"
+test_image_dir = "test_images\\"
 # input_dir = "/Users/kir/Datasets/Shimpact/"     # don't use the ~ shortcut for /users/kir !
 
 labels_file = input_dir + "train_labels.csv"
 meta_file = input_dir + "train_metadata.csv"
+
+test_meta_file = input_dir + "test_metadata.csv"
 
 class_bins = np.array([  0,   5,  10,  15,  20,  25,  30,  35,  40,  45,  50,  55,  60,
                     65,  70,  75,  80,  90, 100, 110, 120, 130, 135, 140, 150, 160,
@@ -49,7 +54,7 @@ class ShimpyDataModule(LightningDataModule):
 
         self.train_dataset = ConcatDataset(train_datasets)
         self.valid_dataset = ShimpyDataset(fold_no=test_fold, folds=self.folds, transforms=None, test=False, image_size=self.image_size)
-        # self.test_dataset = self.valid_dataset.copy()  # do we need to split validation into test and valid??
+        self.test_dataset = ShimpyTestDataset(image_size=[512, 512])
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset,
@@ -70,8 +75,8 @@ class ShimpyDataModule(LightningDataModule):
                           collate_fn=self.collate_fn,
                           )
 
-    def test_dataloader(self):
-        return DataLoader(self.valid_dataset, batch_size=self.batch_size)
+    def predict_dataloader(self):
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, collate_fn=self.collate_test_fn)
 
     # @staticmethod
     def collate_fn(self, batch):
@@ -82,10 +87,9 @@ class ShimpyDataModule(LightningDataModule):
         images = torch.stack(images)
         images = images.permute(0, 3, 1, 2)
 
-        image_size = [512, 512]
         boxes = [target["bboxes"].float() for target in targets]
         labels = [target["labels"].float() for target in targets]
-        img_size = torch.tensor([image_size for target in targets]).float()
+        img_size = torch.tensor([self.image_size for target in targets]).float()
         img_scale = torch.tensor([1.0 for target in targets]).float()
 
         annotations = {
@@ -97,6 +101,29 @@ class ShimpyDataModule(LightningDataModule):
 
         return images, annotations
 
+    def collate_test_fn(self, batch):
+        # images, targets, image_ids = tuple(zip(*batch))
+        # images = torch.stack(images)
+        # images = images.float()
+        images, targets = tuple(zip(*batch))
+        images = torch.stack(images)
+        images = images.permute(0, 3, 1, 2)
+
+        boxes = [target["bboxes"].float() for target in targets]
+        labels = [target["labels"].float() for target in targets]
+        img_ids = [target["img_ids"] for target in targets]
+        img_size = torch.tensor([self.image_size for target in targets]).float()
+        img_scale = torch.tensor([1.0 for target in targets]).float()
+
+        annotations = {
+            "bbox": boxes,
+            "cls": labels,
+            "img_size": img_size,
+            "img_scale": img_scale,
+            "img_file": img_ids
+        }
+
+        return images, annotations
 
 # load the labels and metadata. Split into folds taking into account the place the video was taken
 class ShimpyDataset(Dataset):
@@ -167,8 +194,13 @@ class ShimpyDataset(Dataset):
             self.fold_labels = self.fold_labels.reindex(shuffled_idx)
             self.fold_meta = self.fold_meta.reindex(shuffled_idx)
 
+        # TODO: perhaps use larger images?
         self.transform = A.Compose([
-            A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
+            # A.RandomCrop(height=256,width=256),
+            # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
+            # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
+            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.0 , interpolation=cv2.INTER_CUBIC),
+            # A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.2),
         ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
@@ -226,8 +258,88 @@ class ShimpyDataset(Dataset):
         return len(self.fold_labels)
 
 
-def test_dataset():
-    ds = ShimpyDataset(folds=2, fold_no=0, test=False,image_size=[256, 256])
+class ShimpyTestDataset(Dataset):
+
+    def __init__(self, transforms=None, image_size=None ):
+        super().__init__()
+        self.transforms = transforms
+        self.image_size = image_size
+        self.image_dir  = test_image_dir
+
+        meta = pd.read_csv(test_meta_file, skipinitialspace=True)
+        idx_nans = meta[pd.isnull(meta['x1'])].index
+        meta.iloc[idx_nans, 2] = 0.0
+        meta.iloc[idx_nans, 3] = 0.0
+        meta.iloc[idx_nans, 4] = 1.0
+        meta.iloc[idx_nans, 5] = 1.0
+
+        df_folds = meta[['video_id']].copy()
+        df_folds.loc[:, 'frame_count'] = 1                  # добавили столбец frame_count == 1 везде
+        df_folds = df_folds.groupby('video_id').count()     # посчитали сколько строк с одного видео
+        df_folds.loc[:, 'source'] = meta[['video_id', 'site_id']].groupby('video_id').min()['site_id']
+        df_folds.loc[:, 'stratify_group'] = np.char.add(
+            df_folds['source'].values.astype(str),
+            df_folds['frame_count'].apply(lambda x: f'_{x // 1}').values.astype(str)
+        )
+        df_folds.loc[:, 'fold'] = 0
+
+        self.fold_meta = meta.copy()
+
+        # TODO: perhaps use larger images?
+        self.transform = A.Compose([
+            # A.RandomCrop(height=256,width=256),
+            # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
+            # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
+            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.0 , interpolation=cv2.INTER_CUBIC),
+            # A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
+            A.HorizontalFlip(p=0.5),
+            A.RandomBrightnessContrast(p=0.2),
+        ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
+
+
+    def load_image_and_box(self, index):
+
+        if isinstance(index, torch.Tensor):
+            row = self.fold_meta.iloc[index.item()]
+        else:
+            row = self.fold_meta.iloc[index]
+
+        image_file = "img_" + str.split(row.video_id, '.')[0] + f"_{row.time:04d}.png"
+
+        image = cv2.imread(input_dir+self.image_dir+image_file, cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+        image /= 255.0
+
+        # details = self.fold_meta[(self.fold_meta['video_id'] == row.video_id) & (self.fold_meta['time'] == row.time)]
+
+        boxes = np.expand_dims(row[['x1', 'y1', 'x2', 'y2']].values, axis=0)    # swap x/y to match torch expectations
+        boxes[:, 0] *= image.shape[1]
+        boxes[:, 2] *= image.shape[1]
+        boxes[:, 1] *= image.shape[0]
+        boxes[:, 3] *= image.shape[0]
+
+        transformed = self.transform(image=image, bboxes=boxes, category_ids=np.zeros((1,)))
+
+        return transformed, image_file
+        # return image, boxes, dist
+
+    def __getitem__(self, idx: int):
+        sample, image_file = self.load_image_and_box(idx)
+
+        target = {'labels': torch.tensor(np.array(sample['category_ids'],dtype='int32')),
+                  'bboxes': torch.tensor(np.array(sample['bboxes']).astype('float32')),
+                  'img_ids': image_file
+                  }
+
+        return torch.tensor(sample['image']),target
+
+    def __len__(self) -> int:
+        return len(self.fold_meta)
+
+
+
+def test_train_dataset():
+    ds = ShimpyDataset(folds=2, fold_no=0, test=False,image_size=[512, 512])
     print(len(ds))
     # sample = ds[45]
     # [*boxes] = sample['bboxes']
@@ -235,13 +347,13 @@ def test_dataset():
 
     # [*boxes] = sample[1]
     # image = sample[0]
-    image, target = ds[45]
-
+    image, target = ds[40]
+    image = image.numpy()
     # for box in target['boxes']:
-    box = target['boxes']
+    box = target['bboxes']
     cv2.rectangle(image, (int(box[0,0]), int(box[0,1])), (int(box[0,2]), int(box[0,3])), (0, 1, 0), 2)
 
-    cv2.imshow(f"class {target['labels'][0]}", image)
+    cv2.imshow(f"class {target['labels'][0].numpy()}", image)
     # cv2.imshow(f"class {sample['category_ids'][0].item()}", image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -254,7 +366,27 @@ def test_lit_datamodule():
     image, target = next(iter(dataloader))
     print(image.shape)
 
+def test_test_dataset():
+    ds = ShimpyTestDataset(image_size=[512, 512])
+    print(len(ds))
+    # sample = ds[45]
+    # [*boxes] = sample['bboxes']
+    # image = sample['image']
+
+    # [*boxes] = sample[1]
+    # image = sample[0]
+    image, target = ds[40]
+    image = image.numpy()
+    # for box in target['boxes']:
+    box = target['bboxes']
+    cv2.rectangle(image, (int(box[0,0]), int(box[0,1])), (int(box[0,2]), int(box[0,3])), (0, 1, 0), 2)
+
+    cv2.imshow(f"class {target['labels'][0].numpy()}", image)
+    # cv2.imshow(f"class {sample['category_ids'][0].item()}", image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    test_lit_datamodule()
-    # test_dataset()
+    # test_lit_datamodule()
+    # test_train_dataset()
+    test_test_dataset()
