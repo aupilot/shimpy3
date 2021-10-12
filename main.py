@@ -5,18 +5,20 @@ from pytorch_lightning import Trainer
 
 # https://medium.com/data-science-at-microsoft/training-efficientdet-on-custom-data-with-pytorch-lightning-using-an-efficientnetv2-backbone-1cdf3bd7921f
 
+# dataset: drop frames with prop < 0.3 instead of 0.2
+# added erossion rate 0.2 instead of 0
+# more epochs (36 inst of 30)
 
 if __name__ == '__main__':
 
     image_size = [512, 512]
-
-    dm = ShimpyDataModule(0, 2, batch_size=8, image_size=image_size, num_workers=0)
+    dm = ShimpyDataModule(0, folds=2, batch_size=8, image_size=image_size, num_workers=0)
 
     model = EfficientDetModel(
         model_architecture='tf_efficientdet_d0',
         num_classes=len(class_bins),
-        img_size=512
+        img_size=image_size[0]
     )
 
-    trainer = Trainer(gpus=[0], max_epochs=24, num_sanity_val_steps=10)
+    trainer = Trainer(gpus=[0], max_epochs=36, num_sanity_val_steps=10)
     trainer.fit(model, dm)

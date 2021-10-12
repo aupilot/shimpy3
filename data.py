@@ -112,6 +112,7 @@ class ShimpyDataModule(LightningDataModule):
         boxes = [target["bboxes"].float() for target in targets]
         labels = [target["labels"].float() for target in targets]
         img_ids = [target["img_ids"] for target in targets]
+        # videos = [target["videos"] for target in targets]
         img_size = torch.tensor([self.image_size for target in targets]).float()
         img_scale = torch.tensor([1.0 for target in targets]).float()
 
@@ -120,7 +121,8 @@ class ShimpyDataModule(LightningDataModule):
             "cls": labels,
             "img_size": img_size,
             "img_scale": img_scale,
-            "img_file": img_ids
+            "img_file": img_ids,
+            # "video": videos
         }
 
         return images, annotations
@@ -149,7 +151,7 @@ class ShimpyDataset(Dataset):
 
         # TODO: test if we should drop them? @@@@@@@@@@@@@@@@
         # drop all frames with probability less than 0.1
-        idx_nans = meta[meta['probability'] < 0.1].index
+        idx_nans = meta[meta['probability'] < 0.3].index
         labels.drop(idx_nans, inplace=True)
         meta.drop(idx_nans, inplace=True)
 
@@ -199,7 +201,7 @@ class ShimpyDataset(Dataset):
             # A.RandomCrop(height=256,width=256),
             # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
             # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.0 , interpolation=cv2.INTER_CUBIC),
+            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
             # A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.2),
@@ -304,7 +306,8 @@ class ShimpyTestDataset(Dataset):
         else:
             row = self.fold_meta.iloc[index]
 
-        image_file = "img_" + str.split(row.video_id, '.')[0] + f"_{row.time:04d}.png"
+        video = str.split(row.video_id, '.')
+        image_file = "img_" + video[0] + '_' + video[1] + f"_{row.time:04d}.png"
 
         image = cv2.imread(input_dir+self.image_dir+image_file, cv2.IMREAD_COLOR)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
