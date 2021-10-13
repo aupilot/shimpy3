@@ -49,11 +49,13 @@ class ShimpyDataModule(LightningDataModule):
         train_datasets = []
         for i in range(self.folds):
             if i is not test_fold:
-                new_ds = ShimpyDataset(fold_no=self.fold_no, folds=self.folds, transforms=None, test=False, image_size=self.image_size)
+                new_ds = ShimpyDataset(fold_no=i, folds=self.folds, transforms=None, test=False, image_size=self.image_size)
                 train_datasets.append(new_ds)
 
         self.train_dataset = ConcatDataset(train_datasets)
         self.valid_dataset = ShimpyDataset(fold_no=test_fold, folds=self.folds, transforms=None, test=False, image_size=self.image_size)
+        indices = torch.arange(len(self.valid_dataset)//2)       # lets cut the valid dataset twice to speed up
+        self.valid_dataset = torch.utils.data.Subset(self.valid_dataset, indices)
         self.test_dataset = ShimpyTestDataset(image_size=[512, 512])
 
     def train_dataloader(self):

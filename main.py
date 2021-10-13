@@ -12,13 +12,16 @@ from pytorch_lightning import Trainer
 if __name__ == '__main__':
 
     image_size = [512, 512]
-    dm = ShimpyDataModule(0, folds=2, batch_size=8, image_size=image_size, num_workers=0)
 
-    model = EfficientDetModel(
-        model_architecture='tf_efficientdet_d0',
-        num_classes=len(class_bins),
-        img_size=image_size[0]
-    )
+    for f in range(3):
+        dm = ShimpyDataModule(f, folds=3, batch_size=8, image_size=image_size, num_workers=0)
 
-    trainer = Trainer(gpus=[0], max_epochs=36, num_sanity_val_steps=10)
-    trainer.fit(model, dm)
+        model = EfficientDetModel(
+            model_architecture='tf_efficientdet_d0',
+            num_classes=len(class_bins),
+            img_size=image_size[0]
+        )
+
+        # it seems that 28-30 eps is enough!!
+        trainer = Trainer(gpus=[0], max_epochs=36, num_sanity_val_steps=4)
+        trainer.fit(model, dm)
