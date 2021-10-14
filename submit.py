@@ -7,16 +7,22 @@ matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+
 from tqdm import tqdm
+import colorama         # fix tqdm colour bug
+colorama.deinit()
+colorama.init(strip=False)
 
 import warnings
 warnings.filterwarnings("ignore")
 
 
+
+
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_29\checkpoints\epoch=35-step=22499.ckpt"
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_30\checkpoints\epoch=35-step=22427.ckpt"
-chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_31\checkpoints\epoch=35-step=23399.ckpt"
-output_name = 'm2-fold2'
+# chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_31\checkpoints\epoch=35-step=23399.ckpt"
+# output_name = 'm2-fold2-thr0.3'
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_27\checkpoints\epoch=23-step=13319.ckpt"
 # name = 'm1-fold0'
@@ -32,13 +38,13 @@ if __name__ == '__main__':
 
     model = EfficientDetModel.load_from_checkpoint(chp)
     model.eval()
-    model.wbf_iou_threshold = 0.2
+    model.wbf_iou_threshold = 0.2       # 0.3 - хуже
     model.skip_box_thr = 0.02
 
     model.to(device)
     data_aslist = []
 
-    with tqdm(dm.predict_dataloader(), unit="batch", mininterval=0.2, colour='green', ncols=20) as tepoch:
+    with tqdm(dm.predict_dataloader(), unit="batch", mininterval=0.2, colour='green') as tepoch:
         for images, targets in tepoch:
             a = model.predict(images.to(device))
             for i, image in enumerate(images):
@@ -53,6 +59,9 @@ if __name__ == '__main__':
                     cv2.rectangle(img_np, (int(box[1]), int(box[0])), (int(box[3]), int(box[2])), (0, 1, 0), 2)
                 else:
                     dist = class_bins[len(class_bins)//2]/10
+
+                # confidence is not a good criteria!
+                # if UOI < 0.1, we use average distance
 
                 # cv2.imshow(f"File: {img_file}, Distance {dist}", img_np)
                 # cv2.waitKey(0)

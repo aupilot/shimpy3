@@ -124,7 +124,6 @@ class ShimpyDataModule(LightningDataModule):
             "img_size": img_size,
             "img_scale": img_scale,
             "img_file": img_ids,
-            # "video": videos
         }
 
         return images, annotations

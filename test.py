@@ -1,6 +1,6 @@
 from effdet import create_model
 import torch
-from effdet.soft_nms import batched_soft_nms
+from effdet.soft_nms import batched_soft_nms, pairwise_iou
 
 from data import ShimpyDataModule, class_bins
 from lightning import EfficientDetModel
@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 
-
-chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_27\checkpoints\epoch=23-step=13319.ckpt"
+chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_31\checkpoints\epoch=35-step=23399.ckpt"
+# chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_27\checkpoints\epoch=23-step=13319.ckpt"
 
 if __name__ == '__main__':
 
@@ -34,8 +34,8 @@ if __name__ == '__main__':
 
     model = EfficientDetModel.load_from_checkpoint(chp)
     model.eval()
-    model.wbf_iou_threshold = 0.2
-    model.skip_box_thr = 0.02
+    model.wbf_iou_threshold = 0.1
+    model.skip_box_thr = 0.01
 
     for images, targets in dm.predict_dataloader():
         a = model.predict(images)
@@ -47,8 +47,15 @@ if __name__ == '__main__':
                 dist = np.mean(dists)/10
                 strongest_box = np.argmax(a[2][i])
                 box = a[0][i][strongest_box]
+                box[0], box[1] = box[1], box[0]
+                box[2], box[3] = box[3], box[2]
                 img_np = image.permute(1, 2, 0).numpy().copy()
-                cv2.rectangle(img_np, (int(box[1]), int(box[0])), (int(box[3]), int(box[2])), (0, 1, 0), 2)
+                cv2.rectangle(img_np, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 1, 0), 2)
+                target_box = targets['bbox'][i]
+                cv2.rectangle(img_np, (int(target_box[0,0]), int(target_box[0,1])), (int(target_box[0,2]), int(target_box[0,3])), (1, 1, 0), 2)
+                print(a[2][i][strongest_box])
+                print(pairwise_iou(target_box, torch.tensor([box])))
+
             else:
                 dist = class_bins[len(class_bins)//2]/10
 
