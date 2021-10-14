@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np
 
 pred_list = [
-    'submitt00.csv',
-    'submitt01.csv',
+    'sub_m2-fold0.csv',
+    'sub_m2-fold1.csv',
+    'sub_m2-fold2.csv',
     ]
 
 dff=[]
