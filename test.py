@@ -43,7 +43,7 @@ if __name__ == '__main__':
             img_file = targets['img_file'][i]
             cls = a[1][i]
             if len(cls) > 0:
-                dists = [class_bins[int(c)] for c in cls]
+                dists = [class_bins[int(c-1)] for c in cls]
                 dist = np.mean(dists)/10
                 strongest_box = np.argmax(a[2][i])
                 box = a[0][i][strongest_box]

@@ -84,14 +84,14 @@ class Random256BBoxSafeCrop(DualTransform):
         uint8, float32
     """
 
-    def __init__(self, height, width, erosion_rate=0.0, interpolation=cv2.INTER_LINEAR, always_apply=False, p=1.0):
+    def __init__(self, height, width, erosion_rate=0.0, interpolation=cv2.INTER_CUBIC, always_apply=False, p=1.0):
         super(Random256BBoxSafeCrop, self).__init__(always_apply, p)
         self.height = height
         self.width = width
         self.interpolation = interpolation
         self.erosion_rate = erosion_rate
 
-    def apply(self, img, crop_height=0, crop_width=0, h_start=0, w_start=0, interpolation=cv2.INTER_LINEAR, **params):
+    def apply(self, img, crop_height=0, crop_width=0, h_start=0, w_start=0, interpolation=cv2.INTER_CUBIC, **params):
         crop = F.random_crop(img, crop_height, crop_width, h_start, w_start)
         return FGeometric.resize(crop, self.height, self.width, interpolation)
 

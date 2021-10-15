@@ -1,3 +1,6 @@
+import torch
+from effdet.soft_nms import pairwise_iou
+
 from data import ShimpyDataModule, class_bins
 from lightning import EfficientDetModel
 import pandas as pd
@@ -16,8 +19,8 @@ colorama.init(strip=False)
 import warnings
 warnings.filterwarnings("ignore")
 
-
-
+chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_32\checkpoints\epoch=27-step=34271.ckpt"
+output_name = "m3-onefold-bb"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_29\checkpoints\epoch=35-step=22499.ckpt"
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_30\checkpoints\epoch=35-step=22427.ckpt"
@@ -55,13 +58,29 @@ if __name__ == '__main__':
                     dist = np.mean(dists)/10
                     strongest_box = np.argmax(a[2][i])
                     box = a[0][i][strongest_box]
-                    img_np = image.permute(1, 2, 0).numpy().copy()
-                    cv2.rectangle(img_np, (int(box[1]), int(box[0])), (int(box[3]), int(box[2])), (0, 1, 0), 2)
+                    box[0], box[1] = box[1], box[0]
+                    box[2], box[3] = box[3], box[2]
+                    target_box = targets['bbox'][i]
+
+                    iou = pairwise_iou(target_box, torch.tensor([box]))
+                    # confidence is not a good criteria!
+                    # but if detected box mistmatch the label box, we don't trust the distance (class)
+                    # so, if UOI < 0.15 (or even 0.2?), we use average distance
+                    if iou < 0.15:
+                        dist = class_bins[len(class_bins) // 2] / 10
+
+                    # img_np = image.permute(1, 2, 0).numpy().copy()
+                    # cv2.rectangle(img_np, (int(box[1]), int(box[0])), (int(box[3]), int(box[2])), (0, 1, 0), 2)
+                    # cv2.rectangle(img_np, (int(target_box[0, 0]), int(target_box[0, 1])),
+                    #               (int(target_box[0, 2]), int(target_box[0, 3])), (1, 1, 0), 2)
                 else:
                     dist = class_bins[len(class_bins)//2]/10
 
-                # confidence is not a good criteria!
-                # if UOI < 0.1, we use average distance
+                # do we also need to decimate the output distance?
+
+
+
+
 
                 # cv2.imshow(f"File: {img_file}, Distance {dist}", img_np)
                 # cv2.waitKey(0)
@@ -71,8 +90,6 @@ if __name__ == '__main__':
                 time = time_tmp.split(".", 1)
                 data_aslist.append([name+'.'+ext, time[0], dist])  #video_id,time,distance
 
-            # plt.imshow(image.permute(1,2,0))
-            # plt.show()
     df = pd.DataFrame(data_aslist, columns=['video_id','time','distance'])
     df["time"] = pd.to_numeric(df["time"])
     df.to_csv(f"sub_{output_name}.csv", index=False)
