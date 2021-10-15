@@ -6,8 +6,6 @@ from lightning import EfficientDetModel
 import pandas as pd
 from pytorch_lightning import Trainer
 import matplotlib
-matplotlib.use('Qt5Agg')
-import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 
@@ -20,7 +18,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_32\checkpoints\epoch=27-step=34271.ckpt"
-output_name = "m3-onefold-bb"
+output_name = "m3-onefold-bb-0.05"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_29\checkpoints\epoch=35-step=22499.ckpt"
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_30\checkpoints\epoch=35-step=22427.ckpt"
@@ -66,8 +64,9 @@ if __name__ == '__main__':
                     # confidence is not a good criteria!
                     # but if detected box mistmatch the label box, we don't trust the distance (class)
                     # so, if UOI < 0.15 (or even 0.2?), we use average distance
-                    if iou < 0.15:
-                        dist = class_bins[len(class_bins) // 2] / 10
+                    # no - No joy!!!
+                    # if iou < 0.05:
+                    #     dist = class_bins[len(class_bins) // 2] / 10
 
                     # img_np = image.permute(1, 2, 0).numpy().copy()
                     # cv2.rectangle(img_np, (int(box[1]), int(box[0])), (int(box[3]), int(box[2])), (0, 1, 0), 2)
@@ -77,6 +76,9 @@ if __name__ == '__main__':
                     dist = class_bins[len(class_bins)//2]/10
 
                 # do we also need to decimate the output distance?
+
+
+
 
 
 
