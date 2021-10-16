@@ -17,8 +17,11 @@ colorama.init(strip=False)
 import warnings
 warnings.filterwarnings("ignore")
 
-chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_32\checkpoints\epoch=27-step=34271.ckpt"
-output_name = "m3-onefold-bb-0.05"
+chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_44\checkpoints\epoch=15-step=19583.ckpt"
+output_name = "m4-new-crop"
+
+# chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_32\checkpoints\epoch=27-step=34271.ckpt"
+# output_name = "m3-onefold-bb-0.05"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_29\checkpoints\epoch=35-step=22499.ckpt"
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_30\checkpoints\epoch=35-step=22427.ckpt"
@@ -76,13 +79,6 @@ if __name__ == '__main__':
                     dist = class_bins[len(class_bins)//2]/10
 
                 # do we also need to decimate the output distance?
-
-
-
-
-
-
-
 
                 # cv2.imshow(f"File: {img_file}, Distance {dist}", img_np)
                 # cv2.waitKey(0)

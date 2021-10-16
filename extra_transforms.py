@@ -82,12 +82,12 @@ class Random256BBoxSafeCrop(DualTransform):
     Image types:
         uint8, float32
     """
-    def __init__(self, height, width, crop=256, erosion_rate=0.0, interpolation=cv2.INTER_CUBIC, always_apply=False, p=1.0):
+    def __init__(self, height, width, crop=256, test=False, interpolation=cv2.INTER_CUBIC, always_apply=False, p=1.0):
         super(Random256BBoxSafeCrop, self).__init__(always_apply, p)
         self.height = height
         self.width = width
         self.interpolation = interpolation
-        self.erosion_rate = erosion_rate
+        self.test = test
         self.crop = crop
 
     def apply(self, img, xmin=0, ymin=0, xmax=0, ymax=0, interpolation=cv2.INTER_CUBIC, **params):
@@ -124,24 +124,31 @@ class Random256BBoxSafeCrop(DualTransform):
         x_max_shift = (x2-x)*0.7
         y_max_shift = (y2-y)*0.7
 
-        # we can either start from the end of the box or from the beginning
-        xran = (random.random() * 0.2 - 0.1)
-        xran = np.clip(xran, -x_max_shift, x_max_shift)
-        if random.random() > 0.5:
-            bx = x + xran
-            bxmin = np.clip(bx * img_w, 0, (img_w - self.crop)-1)
-        else:
-            bx2 = x2 + xran
-            bxmin = np.clip((bx2*img_w-self.crop), 0.0, (img_w - self.crop)-1)
+        if not self.test:
+            # we can either start from the end of the box or from the beginning
+            xran = (random.random() * 0.2 - 0.1)
+            xran = np.clip(xran, -x_max_shift, x_max_shift)
+            if random.random() > 0.5:
+                bx = x + xran
+                bxmin = np.clip(bx * img_w, 0, (img_w - self.crop)-1)
+            else:
+                bx2 = x2 + xran
+                bxmin = np.clip((bx2*img_w-self.crop), 0.0, (img_w - self.crop)-1)
 
-        yran = (random.random() * 0.2 - 0.1)
-        yran = np.clip(yran, -y_max_shift, y_max_shift)
-        if random.random() > 0.5:
-            by = y + yran
-            bymin = np.clip(by * img_h, 0, (img_h - self.crop)-1)
+            yran = (random.random() * 0.2 - 0.1)
+            yran = np.clip(yran, -y_max_shift, y_max_shift)
+            if random.random() > 0.5:
+                by = y + yran
+                bymin = np.clip(by * img_h, 0, (img_h - self.crop)-1)
+            else:
+                by2 = y2 + yran
+                bymin = np.clip((by2*img_h-self.crop), 0.0, (img_h - self.crop)-1)
         else:
-            by2 = y2 + yran
-            bymin = np.clip((by2*img_h-self.crop), 0.0, (img_h - self.crop)-1)
+            # try to have the box in the centre
+            bx = (x2+x)/2-self.crop/img_w/2
+            by = (y2+y)/2-self.crop/img_h/2
+            bxmin = np.clip(bx * img_w, 0, (img_w - self.crop) - 1)
+            bymin = np.clip(by * img_h, 0, (img_h - self.crop) - 1)
 
         crop_width = self.crop
         crop_height = self.crop
@@ -173,5 +180,5 @@ class Random256BBoxSafeCrop(DualTransform):
         return ["image", "bboxes"]
 
     def get_transform_init_args_names(self):
-        return ("height", "width", "erosion_rate", "interpolation")
+        return ("height", "width", "crop", "test", "interpolation")
 

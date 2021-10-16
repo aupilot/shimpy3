@@ -211,7 +211,7 @@ class ShimpyDataset(Dataset):
             # A.RandomCrop(height=256,width=256),
             # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
             # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=256, erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
+            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=256, test=False, interpolation=cv2.INTER_CUBIC),
             A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.2),
@@ -296,13 +296,20 @@ class ShimpyTestDataset(Dataset):
                 # A.RandomCrop(height=256,width=256),
                 # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
                 # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-                Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=256, erosion_rate=0.0, interpolation=cv2.INTER_CUBIC),
+                A.PadIfNeeded(min_width=640, min_height=360),   # some images are smaller than 360. We will pad them
+                Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=256, test=True, interpolation=cv2.INTER_CUBIC),
                 A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
                 # A.HorizontalFlip(p=0.5),
                 # A.RandomBrightnessContrast(p=0.2),
             ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
         else:
             self.transforms = transforms
+
+        # some images are smaller than 360. We will pad them
+        # self.resize = A.Compose([
+        #     A.PadIfNeeded(height=512, width=512, interpolation=cv2.INTER_CUBIC),
+        # ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
+
 
     def load_image_and_box(self, index):
 
@@ -326,6 +333,11 @@ class ShimpyTestDataset(Dataset):
         boxes[:, 1] *= image.shape[0]
         boxes[:, 3] *= image.shape[0]
 
+        # some images are smaller than 360
+        # if image.shape[0] != 360:
+        #     resized = self.resize(image=image, bboxes=boxes, category_ids=np.zeros((1,)))
+        #     transformed = self.transform(image=resized['image'], bboxes=np.array(resized['bboxes']), category_ids=np.zeros((1,)))
+        # else:
         transformed = self.transform(image=image, bboxes=boxes, category_ids=np.zeros((1,)))
 
         return transformed, image_file
