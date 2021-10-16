@@ -42,6 +42,7 @@ if __name__ == '__main__':
         for i, image in enumerate(images):
             img_file = targets['img_file'][i]
             cls = a[1][i]
+            img_np = image.permute(1, 2, 0).numpy().copy()
             if len(cls) > 0:
                 dists = [class_bins[int(c-1)] for c in cls]
                 dist = np.mean(dists)/10
@@ -49,21 +50,24 @@ if __name__ == '__main__':
                 box = a[0][i][strongest_box]
                 box[0], box[1] = box[1], box[0]
                 box[2], box[3] = box[3], box[2]
-                img_np = image.permute(1, 2, 0).numpy().copy()
+
                 cv2.rectangle(img_np, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 1, 0), 2)
                 target_box = targets['bbox'][i]
-                cv2.rectangle(img_np, (int(target_box[0,0]), int(target_box[0,1])), (int(target_box[0,2]), int(target_box[0,3])), (1, 1, 0), 2)
-                print(a[2][i][strongest_box])
-                print(pairwise_iou(target_box, torch.tensor([box])))
+                if len(target_box) > 0:
+                    cv2.rectangle(img_np, (int(target_box[0,0]), int(target_box[0,1])), (int(target_box[0,2]), int(target_box[0,3])), (1, 1, 0), 2)
+                    print(pairwise_iou(target_box, torch.tensor([box])))
+                    print(a[2][i][strongest_box])
+                else:
+                    print("no target box")
 
             else:
                 dist = class_bins[len(class_bins)//2]/10
 
             # print(dist)
-
             cv2.imshow(f"File: {img_file}, Distance {dist}", img_np)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
+
 
             # plt.imshow(image.permute(1,2,0))
             # plt.show()

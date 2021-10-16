@@ -147,6 +147,9 @@ class ShimpyDataset(Dataset):
         meta = pd.read_csv(meta_file, skipinitialspace=True)
         labels = pd.read_csv(labels_file, skipinitialspace=True)
 
+
+        # TODO: instead of dropping set class 0 and box to 0..1, 0..1. But then we need to shift classes (no +1)
+
         # drop all frames with nans
         idx_nans = meta[pd.isnull(meta['x1'])].index
         labels.drop(idx_nans, inplace=True)
@@ -208,8 +211,8 @@ class ShimpyDataset(Dataset):
             # A.RandomCrop(height=256,width=256),
             # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
             # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-            # A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
+            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=256, erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
+            A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.2),
         ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
@@ -242,6 +245,9 @@ class ShimpyDataset(Dataset):
         boxes[:, 3] *= image.shape[0]
 
         transformed = self.transform(image=image, bboxes=boxes, category_ids=dist)
+
+        if len(transformed['bboxes'][0]) < 4:
+            print("adasdfdadad")
 
         return transformed
         # return image, boxes, dist
@@ -290,8 +296,8 @@ class ShimpyTestDataset(Dataset):
                 # A.RandomCrop(height=256,width=256),
                 # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
                 # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-                Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.0, interpolation=cv2.INTER_CUBIC),
-                # A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
+                Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=256, erosion_rate=0.0, interpolation=cv2.INTER_CUBIC),
+                A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
                 # A.HorizontalFlip(p=0.5),
                 # A.RandomBrightnessContrast(p=0.2),
             ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
