@@ -13,6 +13,7 @@ from extra_transforms import BBoxSafeRandomCrop, Random256BBoxSafeCrop
 
 input_dir = "E:\\Chimpact\\"
 test_image_dir = "test_images\\"
+train_images_dir  = "train_images_full/"
 # test_image_dir = "tmp_images\\"   # @@@@@@@@@@@@@@@@@@@@@@@@@@
 # input_dir = "/Users/kir/Datasets/Shimpact/"     # don't use the ~ shortcut for /users/kir !
 
@@ -138,11 +139,12 @@ class ShimpyDataset(Dataset):
         self.transforms = transforms
         self.test = test
         self.image_size = image_size
-        if test:
-            self.image_dir = "train_images/"
-            # self.image_dir = "test_images/"
-        else:
-            self.image_dir = "train_images/"
+        self.image_dir = train_images_dir
+        # if test:
+        #     self.image_dir = "train_images/"
+        #     # self.image_dir = "test_images/"
+        # else:
+        #     self.image_dir = "train_images/"
 
         meta = pd.read_csv(meta_file, skipinitialspace=True)
         labels = pd.read_csv(labels_file, skipinitialspace=True)
@@ -211,8 +213,8 @@ class ShimpyDataset(Dataset):
             # A.RandomCrop(height=256,width=256),
             # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
             # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=256, test=False, interpolation=cv2.INTER_CUBIC),
-            A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
+            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=512, test=False, interpolation=cv2.INTER_CUBIC),
+            # A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.2),
         ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
@@ -293,8 +295,8 @@ class ShimpyTestDataset(Dataset):
                 # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
                 # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
                 A.PadIfNeeded(min_width=640, min_height=360),   # some images are smaller than 360. We will pad them
-                Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=256, test=True, interpolation=cv2.INTER_CUBIC),
-                A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
+                Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=512, test=True, interpolation=cv2.INTER_CUBIC),
+                # A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
                 # A.HorizontalFlip(p=0.5),
                 # A.RandomBrightnessContrast(p=0.2),
             ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))

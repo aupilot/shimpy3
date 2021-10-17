@@ -9,7 +9,7 @@ from pytorch_lightning import Trainer
 # added erossion rate 0.2 instead of 0
 # more epochs (36 inst of 30)
 
-N_FOLDS = 1
+N_FOLDS = 3
 
 if __name__ == '__main__':
 
