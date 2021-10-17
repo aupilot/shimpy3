@@ -246,11 +246,7 @@ class ShimpyDataset(Dataset):
 
         transformed = self.transform(image=image, bboxes=boxes, category_ids=dist)
 
-        if len(transformed['bboxes'][0]) < 4:
-            print("adasdfdadad")
-
         return transformed
-        # return image, boxes, dist
 
     def __getitem__(self, idx: int):
         sample = self.load_image_and_box(idx)
@@ -305,12 +301,6 @@ class ShimpyTestDataset(Dataset):
         else:
             self.transforms = transforms
 
-        # some images are smaller than 360. We will pad them
-        # self.resize = A.Compose([
-        #     A.PadIfNeeded(height=512, width=512, interpolation=cv2.INTER_CUBIC),
-        # ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
-
-
     def load_image_and_box(self, index):
 
         if isinstance(index, torch.Tensor):
@@ -333,11 +323,6 @@ class ShimpyTestDataset(Dataset):
         boxes[:, 1] *= image.shape[0]
         boxes[:, 3] *= image.shape[0]
 
-        # some images are smaller than 360
-        # if image.shape[0] != 360:
-        #     resized = self.resize(image=image, bboxes=boxes, category_ids=np.zeros((1,)))
-        #     transformed = self.transform(image=resized['image'], bboxes=np.array(resized['bboxes']), category_ids=np.zeros((1,)))
-        # else:
         transformed = self.transform(image=image, bboxes=boxes, category_ids=np.zeros((1,)))
 
         return transformed, image_file
@@ -355,7 +340,6 @@ class ShimpyTestDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.fold_meta)
-
 
 
 def test_train_dataset():
@@ -408,5 +392,5 @@ def test_test_dataset():
 
 if __name__ == '__main__':
     # test_lit_datamodule()
-    # test_train_dataset()
-    test_test_dataset()
+    test_train_dataset()
+    # test_test_dataset()
