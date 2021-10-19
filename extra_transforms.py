@@ -147,8 +147,8 @@ class Random256BBoxSafeCrop(DualTransform):
             # try to have the box in the centre
             bx = (x2+x)/2-self.crop/img_w/2
             by = (y2+y)/2-self.crop/img_h/2
-            bxmin = np.clip(bx * img_w, 0, (img_w - self.crop) - 1)
-            bymin = np.clip(by * img_h, 0, (img_h - self.crop) - 1)
+            bxmin = np.clip(np.floor(bx * img_w), 0, (img_w - self.crop) - 1)
+            bymin = np.clip(np.floor(by * img_h), 0, (img_h - self.crop) - 1)
 
         crop_width = self.crop
         crop_height = self.crop

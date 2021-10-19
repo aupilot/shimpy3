@@ -18,7 +18,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_47\checkpoints\epoch=27-step=34271.ckpt"
-output_name = "m5-highres"
+output_name = "m5-highres-fixed2"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_44\checkpoints\epoch=15-step=19583.ckpt"
 # output_name = "m4-new-crop"
@@ -59,14 +59,15 @@ if __name__ == '__main__':
                 cls = a[1][i]
                 if len(cls) > 0:
                     dists = [class_bins[int(c-1)] for c in cls]
-                    dist = np.mean(dists)/10
+                    # dist = np.mean(dists)/10
                     strongest_box = np.argmax(a[2][i])
+                    dist = dists[strongest_box] / 10
                     box = a[0][i][strongest_box]
                     box[0], box[1] = box[1], box[0]
                     box[2], box[3] = box[3], box[2]
                     target_box = targets['bbox'][i]
 
-                    iou = pairwise_iou(target_box, torch.tensor([box]))
+                    # iou = pairwise_iou(target_box, torch.tensor([box]))
                     # confidence is not a good criteria!
                     # but if detected box mistmatch the label box, we don't trust the distance (class)
                     # so, if UOI < 0.15 (or even 0.2?), we use average distance
