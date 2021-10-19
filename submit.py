@@ -59,9 +59,8 @@ if __name__ == '__main__':
                 cls = a[1][i]
                 if len(cls) > 0:
                     dists = [class_bins[int(c-1)] for c in cls]
-                    # dist = np.mean(dists)/10
+                    dist = np.mean(dists)/10
                     strongest_box = np.argmax(a[2][i])
-                    dist = dists[strongest_box] / 10
                     box = a[0][i][strongest_box]
                     box[0], box[1] = box[1], box[0]
                     box[2], box[3] = box[3], box[2]
