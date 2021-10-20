@@ -12,7 +12,7 @@ import albumentations as A
 from extra_transforms import BBoxSafeRandomCrop, Random256BBoxSafeCrop
 
 input_dir = "E:\\Chimpact\\"
-test_image_dir = "test_images\\"
+test_image_dir = "test_images_full\\"
 train_images_dir  = "train_images_full/"
 # test_image_dir = "tmp_images\\"   # @@@@@@@@@@@@@@@@@@@@@@@@@@
 # input_dir = "/Users/kir/Datasets/Shimpact/"     # don't use the ~ shortcut for /users/kir !
@@ -30,7 +30,7 @@ class_bins = np.array([  0,   5,  10,  15,  20,  25,  30,  35,  40,  45,  50,  5
 
 class ShimpyDataModule(LightningDataModule):
 
-    def __init__(self, fold_no: 0, folds: 2, image_size=None, batch_size: int=32, num_workers=4):
+    def __init__(self, fold_no: 0, folds: 2, image_size=None, batch_size: int=32, num_workers=4, random=True):
         super().__init__()
         self.num_workers = num_workers
         self.batch_size = batch_size
@@ -42,7 +42,7 @@ class ShimpyDataModule(LightningDataModule):
     #     # called only on 1 GPU
     #     download_dataset()
 
-    def setup(self, stage: Optional[str] = None):
+    def setup(self, stage: Optional[str] = None, random=True):
 
         if self.folds > 1:
             test_fold = self.fold_no + 1
@@ -52,15 +52,15 @@ class ShimpyDataModule(LightningDataModule):
             train_datasets = []
             for i in range(self.folds):
                 if i is not test_fold:
-                    new_ds = ShimpyDataset(fold_no=i, folds=self.folds, transforms=None, test=False, image_size=self.image_size)
+                    new_ds = ShimpyDataset(fold_no=i, folds=self.folds, transforms=None, random=random, image_size=self.image_size)
                     train_datasets.append(new_ds)
 
             self.train_dataset = ConcatDataset(train_datasets)
-            self.valid_dataset = ShimpyDataset(fold_no=test_fold, folds=self.folds, transforms=None, test=False, image_size=self.image_size)
+            self.valid_dataset = ShimpyDataset(fold_no=test_fold, folds=self.folds, transforms=None, random=random, image_size=self.image_size)
             indices = torch.arange(len(self.valid_dataset)//2)       # lets cut the valid dataset twice to speed up
             self.valid_dataset = torch.utils.data.Subset(self.valid_dataset, indices)
         else:
-            self.train_dataset = ShimpyDataset(fold_no=0, folds=1, transforms=None, test=False, image_size=self.image_size)
+            self.train_dataset = ShimpyDataset(fold_no=0, folds=1, transforms=None, random=random, image_size=self.image_size)
             indices = torch.randint_like(torch.arange(len(self.train_dataset)), 0, len(self.train_dataset))[0: len(self.train_dataset)//6]
             self.valid_dataset = torch.utils.data.Subset(self.train_dataset, indices)
 
@@ -98,12 +98,14 @@ class ShimpyDataModule(LightningDataModule):
         labels = [target["labels"].float() for target in targets]
         img_size = torch.tensor([self.image_size for target in targets]).float()
         img_scale = torch.tensor([1.0 for target in targets]).float()
+        img_ids = [target["img_ids"] for target in targets]
 
         annotations = {
             "bbox": boxes,
             "cls": labels,
             "img_size": img_size,
             "img_scale": img_scale,
+            "img_file": img_ids,
         }
 
         return images, annotations
@@ -134,10 +136,10 @@ class ShimpyDataModule(LightningDataModule):
 # load the labels and metadata. Split into folds taking into account the place the video was taken
 class ShimpyDataset(Dataset):
 
-    def __init__(self, fold_no=0, folds=2, transforms=None, test=False, image_size=None ):
+    def __init__(self, fold_no=0, folds=2, transforms=None, random=True, image_size=None ):
         super().__init__()
         self.transforms = transforms
-        self.test = test
+        # self.test = test
         self.image_size = image_size
         self.image_dir = train_images_dir
         # if test:
@@ -203,7 +205,7 @@ class ShimpyDataset(Dataset):
             self.fold_meta = meta.copy()
 
         # shuffle if not test
-        if not test:
+        if random:
             shuffled_idx = np.random.permutation(self.fold_labels.index)
             self.fold_labels = self.fold_labels.reindex(shuffled_idx)
             self.fold_meta = self.fold_meta.reindex(shuffled_idx)
@@ -248,12 +250,14 @@ class ShimpyDataset(Dataset):
 
         transformed = self.transform(image=image, bboxes=boxes, category_ids=dist)
 
-        return transformed
+        return transformed, image_file
 
     def __getitem__(self, idx: int):
-        sample = self.load_image_and_box(idx)
+        sample, image_file = self.load_image_and_box(idx)
         target = {'labels': torch.tensor(np.array(sample['category_ids'],dtype='int32')),
-                  'bboxes': torch.tensor(np.array(sample['bboxes']).astype('float32'))}
+                  'bboxes': torch.tensor(np.array(sample['bboxes']).astype('float32')),
+                  'img_ids': image_file
+                  }
 
         return torch.tensor(sample['image']),target
 
@@ -263,7 +267,7 @@ class ShimpyDataset(Dataset):
 
 class ShimpyTestDataset(Dataset):
 
-    def __init__(self, transforms=None, image_size=None ):
+    def __init__(self, transforms=None, image_size=None):
         super().__init__()
         self.image_size = image_size
         self.image_dir  = test_image_dir
@@ -294,7 +298,8 @@ class ShimpyTestDataset(Dataset):
                 # A.RandomCrop(height=256,width=256),
                 # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
                 # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-                A.PadIfNeeded(min_width=640, min_height=360),   # some images are smaller than 360. We will pad them
+                # A.PadIfNeeded(min_width=640, min_height=360),   # some images are smaller than 360. We will pad them
+                A.PadIfNeeded(min_width=1280, min_height=720),   # hi-res version
                 Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=512, test=True, interpolation=cv2.INTER_CUBIC),
                 # A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
                 # A.HorizontalFlip(p=0.5),

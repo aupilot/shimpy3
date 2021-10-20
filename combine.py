@@ -2,10 +2,10 @@ import pandas as pd
 import numpy as np
 
 pred_list = [
-    'sub_m2-fold0.csv',
-    'sub_m2-fold1.csv',
-    'sub_m2-fold2.csv',
-    # 'sub_m4-new-crop.csv',
+    # 'sub_m2-fold0.csv',
+    # 'sub_m2-fold1.csv',
+    # 'sub_m2-fold2.csv',
+    'sub_m5-highres.csv',
     ]
 
 # labels['distance'].unique()

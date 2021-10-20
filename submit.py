@@ -18,7 +18,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_47\checkpoints\epoch=27-step=34271.ckpt"
-output_name = "m5-highres-fixed2"
+output_name = "m5-highres-fancy-box"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_44\checkpoints\epoch=15-step=19583.ckpt"
 # output_name = "m4-new-crop"
@@ -59,12 +59,24 @@ if __name__ == '__main__':
                 cls = a[1][i]
                 if len(cls) > 0:
                     dists = [class_bins[int(c-1)] for c in cls]
-                    dist = np.mean(dists)/10
                     strongest_box = np.argmax(a[2][i])
-                    box = a[0][i][strongest_box]
-                    box[0], box[1] = box[1], box[0]
-                    box[2], box[3] = box[3], box[2]
-                    target_box = targets['bbox'][i]
+
+                    # == pick the closest predicted box to the input data box. if matches the most confident, use it. Otherwise use mean
+                    b_lab = torch.Tensor(targets['bbox'][i])
+                    b_pred = torch.Tensor(a[0][i][:])
+                    b_lab = torch.index_select(b_lab, 1, torch.LongTensor([1, 0, 3, 2]))
+                    ious = pairwise_iou(b_pred, b_lab)
+                    best_box_idx = torch.argmax(ious).numpy()
+
+                    if best_box_idx == strongest_box:
+                        dist = dists[best_box_idx] / 10
+                    else:
+                        dist = np.mean(dists) / 10
+
+                    # box = a[0][i][strongest_box]
+                    # box[0], box[1] = box[1], box[0]
+                    # box[2], box[3] = box[3], box[2]
+                    # target_box = targets['bbox'][i]
 
                     # iou = pairwise_iou(target_box, torch.tensor([box]))
                     # confidence is not a good criteria!
