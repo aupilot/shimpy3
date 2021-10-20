@@ -18,7 +18,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_47\checkpoints\epoch=27-step=34271.ckpt"
-output_name = "m5-highres-fancy-box"
+output_name = "m5-highres-fancy-box-lowthres"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_44\checkpoints\epoch=15-step=19583.ckpt"
 # output_name = "m4-new-crop"
@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     model = EfficientDetModel.load_from_checkpoint(chp)
     model.eval()
-    model.wbf_iou_threshold = 0.2       # 0.3 - хуже
+    model.wbf_iou_threshold = 0.2       # 0.3 - хуже. 0.02 - тоже хуже
     model.skip_box_thr = 0.02
 
     model.to(device)
@@ -59,19 +59,21 @@ if __name__ == '__main__':
                 cls = a[1][i]
                 if len(cls) > 0:
                     dists = [class_bins[int(c-1)] for c in cls]
-                    strongest_box = np.argmax(a[2][i])
 
                     # == pick the closest predicted box to the input data box. if matches the most confident, use it. Otherwise use mean
-                    b_lab = torch.Tensor(targets['bbox'][i])
-                    b_pred = torch.Tensor(a[0][i][:])
-                    b_lab = torch.index_select(b_lab, 1, torch.LongTensor([1, 0, 3, 2]))
-                    ious = pairwise_iou(b_pred, b_lab)
-                    best_box_idx = torch.argmax(ious).numpy()
+                    # strongest_box = np.argmax(a[2][i])
+                    # b_lab = torch.Tensor(targets['bbox'][i])
+                    # b_pred = torch.Tensor(a[0][i][:])
+                    # b_lab = torch.index_select(b_lab, 1, torch.LongTensor([1, 0, 3, 2]))
+                    # ious = pairwise_iou(b_pred, b_lab)
+                    # best_box_idx = torch.argmax(ious).numpy()
+                    # if best_box_idx == strongest_box:
+                    #     dist = dists[best_box_idx] / 10
+                    # else:
+                    #     dist = np.mean(dists) / 10
 
-                    if best_box_idx == strongest_box:
-                        dist = dists[best_box_idx] / 10
-                    else:
-                        dist = np.mean(dists) / 10
+                    # == it seems that this simple way works better?
+                    dist = np.mean(dists) / 10
 
                     # box = a[0][i][strongest_box]
                     # box[0], box[1] = box[1], box[0]
