@@ -5,23 +5,25 @@ from effdet.config.model_config import efficientdet_model_param_dict
 import timm
 
 
-
-# def create_model(num_classes=1, image_size=512, architecture="tf_efficientnetv2_l"):
-#     efficientdet_model_param_dict['tf_efficientnetv2_l'] = dict(
-#         name='tf_efficientnetv2_l',
-#         backbone_name='tf_efficientnetv2_l',
-#         backbone_args=dict(drop_path_rate=0.2),
-#         num_classes=num_classes,
-#         url='', )
-
-
 def create_model(num_classes=1, image_size=512, architecture="tf_efficientnet_d0"):
-    efficientdet_model_param_dict['tf_efficientnet_d0'] = dict(
-        name='tf_efficientnet_d0',
-        backbone_name='tf_efficientnet_d0',
-        backbone_args=dict(drop_path_rate=0.2),
-        num_classes=num_classes,
-        url='', )
+
+    if architecture == "tf_efficientnetv2_l":
+        efficientdet_model_param_dict['tf_efficientnetv2_l'] = dict(
+            name='tf_efficientnetv2_l',
+            backbone_name='tf_efficientnetv2_l',
+            backbone_args=dict(drop_path_rate=0.2),
+            num_classes=num_classes,
+            url='', )
+
+    elif architecture == "tf_efficientnet_d0":
+        efficientdet_model_param_dict['tf_efficientnet_d0'] = dict(
+            name='tf_efficientnet_d0',
+            backbone_name='tf_efficientnet_d0',
+            backbone_args=dict(drop_path_rate=0.2),
+            num_classes=num_classes,
+            url='', )
+    else:
+        raise ValueError('Update architecture configuration here!')
 
     config = get_efficientdet_config(architecture)
     config.update({'num_classes': num_classes})
