@@ -17,8 +17,12 @@ colorama.init(strip=False)
 import warnings
 warnings.filterwarnings("ignore")
 
-chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_47\checkpoints\epoch=27-step=34271.ckpt"
-output_name = "m5-highres-fancy-box-lowthres"
+
+chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_53\checkpoints\epoch=24-step=61099.ckpt"
+output_name = "m6-v2"
+
+# chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_47\checkpoints\epoch=27-step=34271.ckpt"
+# output_name = "m5-highres-fancy-box-lowthres"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_44\checkpoints\epoch=15-step=19583.ckpt"
 # output_name = "m4-new-crop"
@@ -40,7 +44,7 @@ if __name__ == '__main__':
     device = 'cuda'
     image_size = [512, 512]
 
-    dm = ShimpyDataModule(0, 2, batch_size=10, image_size=image_size, num_workers=0)
+    dm = ShimpyDataModule(0, 2, batch_size=3, image_size=image_size, num_workers=0)
     dm.setup()
 
     model = EfficientDetModel.load_from_checkpoint(chp)
