@@ -27,7 +27,7 @@ if __name__ == '__main__':
             model_architecture='tf_efficientdet_d0',
             num_classes=len(class_bins),
             img_size=image_size[0],
-            learning_rate=0.0002,
+            learning_rate=0.001, #0.0002,
             len_data_loader=len(dm.train_dataset),
             epochs=EPOCHS,
             batch_size=BS,

@@ -212,17 +212,20 @@ class ShimpyDataset(Dataset):
             self.fold_labels = self.fold_labels.reindex(shuffled_idx)
             self.fold_meta = self.fold_meta.reindex(shuffled_idx)
 
-        # TODO: perhaps use larger images?
         self.transform = A.Compose([
             # A.RandomCrop(height=256,width=256),
             # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
             # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=self.crop_size, test=False, interpolation=cv2.INTER_CUBIC),
-            A.Resize(height=self.image_size[0], width=self.image_size[1], interpolation=cv2.INTER_CUBIC),
+            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=self.crop_size, test=False),
+            A.Resize(height=self.image_size[0], width=self.image_size[1], interpolation=cv2.INTER_LINEAR),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.2),
             # ToTensorV2(p=1),
         ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
+
+        # GaussNoise(p=0.3)
+        # GridDistortion(distort_limit=0.2, interpolation=cv2.INTER_LINEAR, border_mode=cv2.BORDER_CONSTANT, value=0.5, p=0.2)
+        # CoarseDropout(p=0.3)
 
     def load_image_and_box(self, index):
 
@@ -302,10 +305,10 @@ class ShimpyTestDataset(Dataset):
                 # A.RandomCrop(height=256,width=256),
                 # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
                 # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-                A.PadIfNeeded(min_width=640, min_height=360),   # some images are smaller than 360. We will pad them
-                # A.PadIfNeeded(min_width=1280, min_height=720),   # hi-res version
-                Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=self.crop_size, test=True, interpolation=cv2.INTER_CUBIC),
-                A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),     # when using 256x256 crop we need to upscale for the net input
+                A.PadIfNeeded(min_width=640, min_height=360, border_mode=cv2.BORDER_CONSTANT, value=0.5),   # some images are smaller than 360. We will pad them
+                # A.PadIfNeeded(min_width=1280, min_height=720, border_mode=cv2.BORDER_CONSTANT, value=0.5),   # hi-res version
+                Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=self.crop_size, test=True),
+                A.Resize(height=512, width=512, interpolation=cv2.INTER_LINEAR),     # when using 256x256 crop we need to upscale for the net input
                 # A.HorizontalFlip(p=0.5),
                 # A.RandomBrightnessContrast(p=0.2),
                 # ToTensorV2(p=1),
@@ -355,7 +358,7 @@ class ShimpyTestDataset(Dataset):
 
 
 def test_train_dataset():
-    ds = ShimpyDataset(folds=2, fold_no=0, test=False,image_size=[512, 512])
+    ds = ShimpyDataset(folds=2, fold_no=0, image_size=[512, 512])
     print(len(ds))
     # sample = ds[45]
     # [*boxes] = sample['bboxes']

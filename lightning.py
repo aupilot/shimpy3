@@ -10,6 +10,8 @@ from pytorch_lightning import LightningModule
 from pytorch_lightning.core.decorators import auto_move_data
 from ensemble_boxes import ensemble_boxes_wbf
 # from data import get_valid_transforms
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 from model import create_model
 import albumentations as A
 
@@ -39,18 +41,6 @@ def run_wbf(predictions, image_size=512, iou_thr=0.44, skip_box_thr=0.43, weight
     return bboxes, confidences, class_labels
 
 
-def get_valid_transforms(target_img_size=512):
-    return A.Compose(
-        [
-            A.Resize(height=target_img_size, width=target_img_size, p=1),
-            A.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-            ToTensorV2(p=1),
-        ],
-        p=1.0,
-        bbox_params=A.BboxParams(
-            format="pascal_voc", min_area=0, min_visibility=0, label_fields=["labels"]
-        ),
-    )
 
 # def get_valid_transforms(target_img_size=512):
 #     return A.Compose(
@@ -85,8 +75,8 @@ class EfficientDetModel(LightningModule):
         self.len_data_loader = len_data_loader
         self.bs = batch_size
         self.epochs = epochs
-        if inference_transforms is None:
-            inference_transforms = get_valid_transforms(target_img_size=img_size)
+        # if inference_transforms is None:
+        #     inference_transforms = get_valid_transforms(target_img_size=img_size)
         self.img_size = img_size
         self.model = create_model(
             num_classes, img_size, architecture=model_architecture
@@ -101,16 +91,22 @@ class EfficientDetModel(LightningModule):
     def forward(self, images, targets):
         return self.model(images, targets)
 
-    # def configure_optimizers(self):
-    #     return torch.optim.AdamW(self.model.parameters(), lr=self.lr)
-
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)
-        scheduler = {
-            'scheduler': torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.005, steps_per_epoch=self.len_data_loader//self.bs, epochs=self.epochs),
-            'interval': 'step'  # called after each training step
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
+        scheduler = ReduceLROnPlateau(optimizer, factor=0.2, patience=5)
+        return {
+           'optimizer': optimizer,
+           'lr_scheduler': scheduler,
+           'monitor': 'valid_loss'
         }
-        return [optimizer], [scheduler]
+
+    # def configure_optimizers(self):
+    #     optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)
+    #     scheduler = {
+    #         'scheduler': torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.005, steps_per_epoch=self.len_data_loader//self.bs, epochs=self.epochs),
+    #         'interval': 'step'  # called after each training step
+    #     }
+    #     return [optimizer], [scheduler]
 
     def training_step(self, batch, batch_idx):
         images, annotations = batch
@@ -122,14 +118,14 @@ class EfficientDetModel(LightningModule):
         # }
 
         self.log("train_loss", losses["loss"], on_step=True, on_epoch=True,
-                 # prog_bar=True,
+                 prog_bar=False,
                  logger=True)
         self.log(
             "train_class_loss", losses["class_loss"], on_step=True, on_epoch=True, prog_bar=True,
             logger=True
         )
         self.log("train_box_loss", losses["box_loss"], on_step=True, on_epoch=True,
-                 # prog_bar=True,
+                 prog_bar=False,
                  logger=True)
 
         return losses['loss']
@@ -142,25 +138,25 @@ class EfficientDetModel(LightningModule):
 
         detections = outputs["detections"]
 
-        batch_predictions = {
-            "predictions": detections,
-            # "targets": targets,
-            # "image_ids": image_ids,
-        }
+        # batch_predictions = {
+        #     "predictions": detections,
+        #     # "targets": targets,
+        #     # "image_ids": image_ids,
+        # }
 
         logging_losses = {
             "class_loss": outputs["class_loss"].detach(),
             "box_loss": outputs["box_loss"].detach(),
         }
 
-        self.log("valid_loss", outputs["loss"], on_step=True, on_epoch=True, prog_bar=True,
+        self.log("valid_loss", outputs["loss"], on_step=True, on_epoch=True, prog_bar=False,
                  logger=True, sync_dist=True)
         self.log(
             "valid_class_loss", logging_losses["class_loss"], on_step=True, on_epoch=True,
             prog_bar=True, logger=True, sync_dist=True
         )
         self.log("valid_box_loss", logging_losses["box_loss"], on_step=True, on_epoch=True,
-                 prog_bar=True, logger=True, sync_dist=True)
+                 prog_bar=False, logger=True, sync_dist=True)
 
         # return {'loss': outputs["loss"], 'batch_predictions': batch_predictions}
         return {'loss': outputs["loss"]}

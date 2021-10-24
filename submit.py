@@ -17,8 +17,11 @@ colorama.init(strip=False)
 import warnings
 warnings.filterwarnings("ignore")
 
-chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_68\checkpoints\epoch=22-step=10372.ckpt"
-output_name = "m6-fold1of4"
+chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_1\checkpoints\epoch=27-step=11423.ckpt"
+output_name = "m7-backto256"
+
+# chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_68\checkpoints\epoch=22-step=10372.ckpt"
+# output_name = "m6-fold1of4"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_67\checkpoints\epoch=21-step=10075.ckpt"
 # output_name = "m6-fold0of4"
