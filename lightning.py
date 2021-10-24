@@ -52,6 +52,19 @@ def get_valid_transforms(target_img_size=512):
         ),
     )
 
+# def get_valid_transforms(target_img_size=512):
+#     return A.Compose(
+#         [
+#             A.Resize(height=target_img_size, width=target_img_size, p=1),
+#             A.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+#             ToTensorV2(p=1),
+#         ],
+#         p=1.0,
+#         bbox_params=A.BboxParams(
+#             format="pascal_voc", min_area=0, min_visibility=0, label_fields=["labels"]
+#         ),
+#     )
+
 
 class EfficientDetModel(LightningModule):
     def __init__(
@@ -65,8 +78,13 @@ class EfficientDetModel(LightningModule):
             inference_transforms=None,
             model_architecture='tf_efficientdet_d0',
             # model_architecture='tf_efficientnetv2_l',
+            len_data_loader=0, epochs=0, batch_size=0
     ):
         super().__init__()
+
+        self.len_data_loader = len_data_loader
+        self.bs = batch_size
+        self.epochs = epochs
         if inference_transforms is None:
             inference_transforms = get_valid_transforms(target_img_size=img_size)
         self.img_size = img_size
@@ -77,33 +95,41 @@ class EfficientDetModel(LightningModule):
         self.prediction_confidence_threshold = prediction_confidence_threshold
         self.lr = learning_rate
         self.wbf_iou_threshold = wbf_iou_threshold
-        self.inference_tfms = inference_transforms
+        # self.inference_tfms = inference_transforms
 
     # @auto_move_data
     def forward(self, images, targets):
         return self.model(images, targets)
 
+    # def configure_optimizers(self):
+    #     return torch.optim.AdamW(self.model.parameters(), lr=self.lr)
+
     def configure_optimizers(self):
-        return torch.optim.AdamW(self.model.parameters(), lr=self.lr)
+        optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)
+        scheduler = {
+            'scheduler': torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.005, steps_per_epoch=self.len_data_loader//self.bs, epochs=self.epochs),
+            'interval': 'step'  # called after each training step
+        }
+        return [optimizer], [scheduler]
 
     def training_step(self, batch, batch_idx):
-        # images, annotations, _, image_ids = batch
         images, annotations = batch
-
         losses = self.model(images, annotations)
 
-        logging_losses = {
-            "class_loss": losses["class_loss"].detach(),
-            "box_loss": losses["box_loss"].detach(),
-        }
+        # logging_losses = {
+        #     "class_loss": losses["class_loss"].detach(),
+        #     "box_loss": losses["box_loss"].detach(),
+        # }
 
-        self.log("train_loss", losses["loss"], on_step=True, on_epoch=True, prog_bar=True,
+        self.log("train_loss", losses["loss"], on_step=True, on_epoch=True,
+                 # prog_bar=True,
                  logger=True)
         self.log(
             "train_class_loss", losses["class_loss"], on_step=True, on_epoch=True, prog_bar=True,
             logger=True
         )
-        self.log("train_box_loss", losses["box_loss"], on_step=True, on_epoch=True, prog_bar=True,
+        self.log("train_box_loss", losses["box_loss"], on_step=True, on_epoch=True,
+                 # prog_bar=True,
                  logger=True)
 
         return losses['loss']
@@ -142,29 +168,29 @@ class EfficientDetModel(LightningModule):
     def predicts_step(self, batch):
         return self(batch)
 
-    @typedispatch
-    def predict(self, images: List):
-        """
-        For making predictions from images
-        Args:
-            images: a list of PIL images
-
-        Returns: a tuple of lists containing bboxes, predicted_class_labels, predicted_class_confidences
-
-        """
-        image_sizes = [(image.size[1], image.size[0]) for image in images]
-        images_tensor = torch.stack(
-            [
-                self.inference_tfms(
-                    image=np.array(image, dtype=np.float32),
-                    labels=np.ones(1),
-                    bboxes=np.array([[0, 0, 1, 1]]),
-                )["image"]
-                for image in images
-            ]
-        )
-
-        return self._run_inference(images_tensor, image_sizes)
+    # @typedispatch
+    # def predict(self, images: List):
+    #     """
+    #     For making predictions from images
+    #     Args:
+    #         images: a list of PIL images
+    #
+    #     Returns: a tuple of lists containing bboxes, predicted_class_labels, predicted_class_confidences
+    #
+    #     """
+    #     image_sizes = [(image.size[1], image.size[0]) for image in images]
+    #     images_tensor = torch.stack(
+    #         [
+    #             self.inference_tfms(
+    #                 image=np.array(image, dtype=np.float32),
+    #                 labels=np.ones(1),
+    #                 bboxes=np.array([[0, 0, 1, 1]]),
+    #             )["image"]
+    #             for image in images
+    #         ]
+    #     )
+    #
+    #     return self._run_inference(images_tensor, image_sizes)
 
     @typedispatch
     def predict(self, images_tensor: torch.Tensor):

@@ -2,10 +2,10 @@ import pandas as pd
 import numpy as np
 
 pred_list = [
-    # 'sub_m2-fold0.csv',
-    # 'sub_m2-fold1.csv',
+    'sub_m6-fold0of4.csv',
+    'sub_m6-fold1of4.csv',
     # 'sub_m2-fold2.csv',
-    'sub_m5-highres.csv',
+    # 'sub_m5-highres.csv',
     ]
 
 # labels['distance'].unique()
@@ -22,6 +22,7 @@ def decimate(number):
 
 
 dff=[]
+
 for file_name in pred_list:
     dff.append(pd.read_csv(file_name))
 n_combine = len(pred_list)
@@ -34,7 +35,7 @@ for index, row in dff[0].iterrows():
         dist = dist + tmp['distance'].item()
     dist = dist / n_combine
     # if decimate
-    dist = decimate(dist)
+    # dist = decimate(dist)
     new_submit.append([row['video_id'], row['time'], dist])
 
 new_df = pd.DataFrame(new_submit, columns=['video_id','time','distance'])

@@ -8,12 +8,13 @@ import pandas as pd
 from torchvision import datasets, transforms
 from sklearn.model_selection import StratifiedKFold
 import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 from extra_transforms import BBoxSafeRandomCrop, Random256BBoxSafeCrop
 
-input_dir = "E:\\Chimpact\\"
-test_image_dir = "test_images_full\\"
-train_images_dir  = "train_images_full/"
+input_dir = r"E:/Chimpact/"
+test_image_dir = r"test_images/"
+train_images_dir  = r"train_images/"
 # test_image_dir = "tmp_images\\"   # @@@@@@@@@@@@@@@@@@@@@@@@@@
 # input_dir = "/Users/kir/Datasets/Shimpact/"     # don't use the ~ shortcut for /users/kir !
 
@@ -136,10 +137,11 @@ class ShimpyDataModule(LightningDataModule):
 # load the labels and metadata. Split into folds taking into account the place the video was taken
 class ShimpyDataset(Dataset):
 
-    def __init__(self, fold_no=0, folds=2, transforms=None, random=True, image_size=None ):
+    def __init__(self, fold_no=0, folds=2, transforms=None, random=True, image_size=None, crop_size=256 ):
         super().__init__()
         self.transforms = transforms
         # self.test = test
+        self.crop_size = crop_size
         self.image_size = image_size
         self.image_dir = train_images_dir
         # if test:
@@ -215,10 +217,11 @@ class ShimpyDataset(Dataset):
             # A.RandomCrop(height=256,width=256),
             # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
             # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=512, test=False, interpolation=cv2.INTER_CUBIC),
-            # A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
+            Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=self.crop_size, test=False, interpolation=cv2.INTER_CUBIC),
+            A.Resize(height=self.image_size[0], width=self.image_size[1], interpolation=cv2.INTER_CUBIC),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.2),
+            # ToTensorV2(p=1),
         ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
 
     def load_image_and_box(self, index):
@@ -267,10 +270,11 @@ class ShimpyDataset(Dataset):
 
 class ShimpyTestDataset(Dataset):
 
-    def __init__(self, transforms=None, image_size=None):
+    def __init__(self, transforms=None, image_size=None, crop_size=256):
         super().__init__()
         self.image_size = image_size
         self.image_dir  = test_image_dir
+        self.crop_size = crop_size
 
         meta = pd.read_csv(test_meta_file, skipinitialspace=True)
         idx_nans = meta[pd.isnull(meta['x1'])].index
@@ -298,12 +302,13 @@ class ShimpyTestDataset(Dataset):
                 # A.RandomCrop(height=256,width=256),
                 # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
                 # A.RandomSizedBBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], erosion_rate=0.2 , interpolation=cv2.INTER_CUBIC),
-                # A.PadIfNeeded(min_width=640, min_height=360),   # some images are smaller than 360. We will pad them
-                A.PadIfNeeded(min_width=1280, min_height=720),   # hi-res version
-                Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=512, test=True, interpolation=cv2.INTER_CUBIC),
-                # A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),
+                A.PadIfNeeded(min_width=640, min_height=360),   # some images are smaller than 360. We will pad them
+                # A.PadIfNeeded(min_width=1280, min_height=720),   # hi-res version
+                Random256BBoxSafeCrop(width=self.image_size[1], height=self.image_size[0], crop=self.crop_size, test=True, interpolation=cv2.INTER_CUBIC),
+                A.Resize(height=512, width=512, interpolation=cv2.INTER_CUBIC),     # when using 256x256 crop we need to upscale for the net input
                 # A.HorizontalFlip(p=0.5),
                 # A.RandomBrightnessContrast(p=0.2),
+                # ToTensorV2(p=1),
             ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
         else:
             self.transforms = transforms
