@@ -1,7 +1,7 @@
 import random
 import numpy as np
 import cv2
-from albumentations import DualTransform
+from albumentations import DualTransform, CoarseDropout, GridDistortion
 from albumentations.augmentations.crops import functional as F
 from albumentations.augmentations.bbox_utils import denormalize_bbox, normalize_bbox, union_of_bboxes
 from albumentations.augmentations.geometric import functional as FGeometric
@@ -182,3 +182,12 @@ class Random256BBoxSafeCrop(DualTransform):
     def get_transform_init_args_names(self):
         return ("height", "width", "crop", "test", "interpolation")
 
+
+class CoarseDropoutBBoxes(CoarseDropout):
+    def apply_to_bbox(self, bbox, xmin=0, ymin=0, xmax=0, ymax=0, rows=0, cols=0, **params):
+        return bbox
+
+
+class GridDistortionBBoxes(GridDistortion):
+    def apply_to_bbox(self, bbox, xmin=0, ymin=0, xmax=0, ymax=0, rows=0, cols=0, **params):
+        return bbox

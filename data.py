@@ -10,7 +10,7 @@ from sklearn.model_selection import StratifiedKFold
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-from extra_transforms import BBoxSafeRandomCrop, Random256BBoxSafeCrop
+from extra_transforms import BBoxSafeRandomCrop, Random256BBoxSafeCrop, CoarseDropoutBBoxes, GridDistortionBBoxes
 
 input_dir = r"E:/Chimpact/"
 test_image_dir = r"test_images/"
@@ -220,12 +220,10 @@ class ShimpyDataset(Dataset):
             A.Resize(height=self.image_size[0], width=self.image_size[1], interpolation=cv2.INTER_LINEAR),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.2),
-            # ToTensorV2(p=1),
+            A.GaussNoise(p=0.33),
+            GridDistortionBBoxes(distort_limit=0.2, interpolation=cv2.INTER_LINEAR, border_mode=cv2.BORDER_CONSTANT, value=0.5, p=0.2),
+            # CoarseDropoutBBoxes(p=0.25),
         ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
-
-        # GaussNoise(p=0.3)
-        # GridDistortion(distort_limit=0.2, interpolation=cv2.INTER_LINEAR, border_mode=cv2.BORDER_CONSTANT, value=0.5, p=0.2)
-        # CoarseDropout(p=0.3)
 
     def load_image_and_box(self, index):
 

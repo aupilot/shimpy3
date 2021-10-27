@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 
 pred_list = [
-    'sub_m6-fold0of4.csv',
-    'sub_m6-fold1of4.csv',
+    'sub_m9-grid-dist.csv',
     # 'sub_m2-fold2.csv',
     # 'sub_m5-highres.csv',
     ]
@@ -35,7 +34,7 @@ for index, row in dff[0].iterrows():
         dist = dist + tmp['distance'].item()
     dist = dist / n_combine
     # if decimate
-    # dist = decimate(dist)
+    dist = decimate(dist)
     new_submit.append([row['video_id'], row['time'], dist])
 
 new_df = pd.DataFrame(new_submit, columns=['video_id','time','distance'])
