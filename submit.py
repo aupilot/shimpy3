@@ -17,8 +17,14 @@ colorama.init(strip=False)
 import warnings
 warnings.filterwarnings("ignore")
 
-chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_11\checkpoints\epoch=33-step=10369.ckpt"
-output_name = "m9-grid-dist"
+chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_16\checkpoints\epoch=23-step=30263.ckpt"
+output_name = "m11-new-dl-onefold"
+
+# chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_15\checkpoints\epoch=25-step=24673.ckpt"
+# output_name = "m10-new-dataloader"
+
+# chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_11\checkpoints\epoch=33-step=10369.ckpt"
+# output_name = "m9-grid-dist"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_9\checkpoints\epoch=32-step=10064.ckpt"
 # output_name = "m8-dropouts"

@@ -14,12 +14,12 @@ from extra_transforms import BBoxSafeRandomCrop, Random256BBoxSafeCrop, CoarseDr
 
 input_dir = r"E:/Chimpact/"
 test_image_dir = r"test_images/"
-train_images_dir  = r"train_images/"
+train_images_dir  = r"train_images_multi/"
 # test_image_dir = "tmp_images\\"   # @@@@@@@@@@@@@@@@@@@@@@@@@@
 # input_dir = "/Users/kir/Datasets/Shimpact/"     # don't use the ~ shortcut for /users/kir !
 
-labels_file = input_dir + "train_labels.csv"
-meta_file = input_dir + "train_metadata.csv"
+labels_file = input_dir + "train_labels_new.csv"
+meta_file = input_dir + "train_meta_new.csv"
 
 test_meta_file = input_dir + "test_metadata.csv"
 # test_meta_file = input_dir + "train_metadata.csv" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -158,8 +158,11 @@ class ShimpyDataset(Dataset):
 
         # drop all frames with nans
         idx_nans = meta[pd.isnull(meta['x1'])].index
-        labels.drop(idx_nans, inplace=True)
-        meta.drop(idx_nans, inplace=True)
+        # labels.drop(idx_nans, inplace=True)
+        # meta.drop(idx_nans, inplace=True)
+        # we don't drop - we replace bbox withg full screen instead
+        meta.at[idx_nans, ['x1', 'y1']] = 0.0
+        meta.at[idx_nans, ['x2', 'y2']] = 1.0
 
         # TODO: fine tune what we should drop @@@@@@@@@@@@@@@@
         # drop all frames with probability less than 0.03 or 0.05?
@@ -167,10 +170,6 @@ class ShimpyDataset(Dataset):
         # ajxx.avi,1,0.0701513,0.0,0.9299861,0.93549573,0.011272797,tai,tgq - no good
         # amwt.avi,2,0.103925645,0.0,0.8923694,0.7745187,0.022369707,tai,wqz - no good
         # apob.mp4,50,0.0033145845,0.19179106,0.11817341,0.6443564,0.044571202,moyen_bafing,fat - no good
-
-        idx_nans = meta[meta['probability'] < 0.05].index
-        labels.drop(idx_nans, inplace=True)
-        meta.drop(idx_nans, inplace=True)
 
         df_folds = meta[['video_id']].copy()
         df_folds.loc[:, 'frame_count'] = 1                  # добавили столбец frame_count == 1 везде
@@ -212,6 +211,11 @@ class ShimpyDataset(Dataset):
             self.fold_labels = self.fold_labels.reindex(shuffled_idx)
             self.fold_meta = self.fold_meta.reindex(shuffled_idx)
 
+        # drop frames with extra low probability
+        idx_bad = meta[meta['probability'] < 0.05].index
+        labels.drop(idx_bad, inplace=True)
+        meta.drop(idx_bad, inplace=True)
+
         self.transform = A.Compose([
             # A.RandomCrop(height=256,width=256),
             # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
@@ -220,9 +224,13 @@ class ShimpyDataset(Dataset):
             A.Resize(height=self.image_size[0], width=self.image_size[1], interpolation=cv2.INTER_LINEAR),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.2),
-            A.GaussNoise(p=0.33),
-            GridDistortionBBoxes(distort_limit=0.2, interpolation=cv2.INTER_LINEAR, border_mode=cv2.BORDER_CONSTANT, value=0.5, p=0.2),
-            # CoarseDropoutBBoxes(p=0.25),
+            A.GaussNoise(var_limit=(0.01, 0.2), p=0.2),
+            # GridDistortionBBoxes(distort_limit=0.2, interpolation=cv2.INTER_LINEAR, border_mode=cv2.BORDER_CONSTANT, value=0.5, p=0.2),
+            CoarseDropoutBBoxes(max_height=28,
+                                max_width=28,
+                                min_height=8,
+                                min_width=8,
+                                p=0.25),
         ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']))
 
     def load_image_and_box(self, index):
@@ -235,7 +243,10 @@ class ShimpyDataset(Dataset):
         image_file = "img_" + str.split(row.video_id, '.')[0] + f"_{row.time:04d}.png"
 
         image = cv2.imread(input_dir+self.image_dir+image_file, cv2.IMREAD_COLOR)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+        try:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+        except:
+            print("no image")
         image /= 255.0
 
         # return distance as a class label
@@ -364,16 +375,17 @@ def test_train_dataset():
 
     # [*boxes] = sample[1]
     # image = sample[0]
-    image, target = ds[40]
-    image = image.numpy()
-    # for box in target['boxes']:
-    box = target['bboxes']
-    cv2.rectangle(image, (int(box[0,0]), int(box[0,1])), (int(box[0,2]), int(box[0,3])), (0, 1, 0), 2)
+    for aa in range(50):
+        image, target = ds[aa]
+        image = image.numpy()
+        # for box in target['boxes']:
+        box = target['bboxes']
+        cv2.rectangle(image, (int(box[0,0]), int(box[0,1])), (int(box[0,2]), int(box[0,3])), (0, 1, 0), 2)
 
-    cv2.imshow(f"class {target['labels'][0].numpy()}", image)
-    # cv2.imshow(f"class {sample['category_ids'][0].item()}", image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        cv2.imshow(f"class {target['labels'][0].numpy()}", image)
+        # cv2.imshow(f"class {sample['category_ids'][0].item()}", image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 def test_lit_datamodule():
@@ -392,16 +404,18 @@ def test_test_dataset():
 
     # [*boxes] = sample[1]
     # image = sample[0]
-    image, target = ds[40]
-    image = image.numpy()
-    # for box in target['boxes']:
-    box = target['bboxes']
-    cv2.rectangle(image, (int(box[0,0]), int(box[0,1])), (int(box[0,2]), int(box[0,3])), (0, 1, 0), 2)
 
-    cv2.imshow(f"class {target['labels'][0].numpy()}", image)
-    # cv2.imshow(f"class {sample['category_ids'][0].item()}", image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    for aa in range(10):
+        image, target = ds[aa]
+        image = image.numpy()
+        # for box in target['boxes']:
+        box = target['bboxes']
+        cv2.rectangle(image, (int(box[0,0]), int(box[0,1])), (int(box[0,2]), int(box[0,3])), (0, 1, 0), 2)
+
+        cv2.imshow(f"class {target['labels'][0].numpy()}", image)
+        # cv2.imshow(f"class {sample['category_ids'][0].item()}", image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     # test_lit_datamodule()

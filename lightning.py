@@ -10,7 +10,7 @@ from pytorch_lightning import LightningModule
 from pytorch_lightning.core.decorators import auto_move_data
 from ensemble_boxes import ensemble_boxes_wbf
 # from data import get_valid_transforms
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 
 from model import create_model
 import albumentations as A
@@ -93,7 +93,8 @@ class EfficientDetModel(LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
-        scheduler = ReduceLROnPlateau(optimizer, factor=0.2, patience=5)
+        scheduler = StepLR(optimizer, step_size=18, gamma=0.1)
+        # scheduler = ReduceLROnPlateau(optimizer, factor=0.2, patience=5)
         return {
            'optimizer': optimizer,
            'lr_scheduler': scheduler,
