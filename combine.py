@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 pred_list = [
-    'sub_m9-grid-dist.csv',
+    'sub_m11-new-dl-onefold.csv',
     # 'sub_m2-fold2.csv',
     # 'sub_m5-highres.csv',
     ]
