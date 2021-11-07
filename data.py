@@ -211,11 +211,6 @@ class ShimpyDataset(Dataset):
             self.fold_labels = self.fold_labels.reindex(shuffled_idx)
             self.fold_meta = self.fold_meta.reindex(shuffled_idx)
 
-        # drop frames with extra low probability
-        idx_bad = meta[meta['probability'] < 0.05].index
-        labels.drop(idx_bad, inplace=True)
-        meta.drop(idx_bad, inplace=True)
-
         self.transform = A.Compose([
             # A.RandomCrop(height=256,width=256),
             # BBoxSafeRandomCrop(crop_width=256, crop_height=256, erosion_rate=0.0),
@@ -357,7 +352,7 @@ class ShimpyTestDataset(Dataset):
 
         target = {'labels': torch.tensor(np.array(sample['category_ids'],dtype='int32')),
                   'bboxes': torch.tensor(np.array(sample['bboxes']).astype('float32')),
-                  'img_ids': image_file
+                  'img_ids': image_file,
                   }
 
         return torch.tensor(sample['image']),target
@@ -375,9 +370,15 @@ def test_train_dataset():
 
     # [*boxes] = sample[1]
     # image = sample[0]
-    for aa in range(50):
+    for aa in range(150):
         image, target = ds[aa]
         image = image.numpy()
+
+        # print probability
+        frame = int(target['img_ids'].split('_')[2].split('.')[0])
+        video = target['img_ids'].split('_')[1]
+        print(f"Prob: {ds.fold_meta[(ds.fold_meta['time'] == frame) & (ds.fold_meta['video_id'].str.contains(video))]['probability'].item()}")
+
         # for box in target['boxes']:
         box = target['bboxes']
         cv2.rectangle(image, (int(box[0,0]), int(box[0,1])), (int(box[0,2]), int(box[0,3])), (0, 1, 0), 2)
