@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 
-chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_47\checkpoints\epoch=27-step=34271.ckpt"
+chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_16\checkpoints\epoch=25-step=32785.ckpt"
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_44\checkpoints\epoch=15-step=19583.ckpt"
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_31\checkpoints\epoch=35-step=23399.ckpt"
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_27\checkpoints\epoch=23-step=13319.ckpt"

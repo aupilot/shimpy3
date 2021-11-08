@@ -17,8 +17,8 @@ colorama.init(strip=False)
 import warnings
 warnings.filterwarnings("ignore")
 
-chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_16\checkpoints\epoch=23-step=30263.ckpt"
-output_name = "m11-new-dl-onefold"
+chp = r"\C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_16\checkpoints\epoch=25-step=32785.ckpt"
+output_name = "m12-bug-fixed"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_15\checkpoints\epoch=25-step=24673.ckpt"
 # output_name = "m10-new-dataloader"

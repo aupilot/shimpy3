@@ -93,7 +93,7 @@ class EfficientDetModel(LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
-        scheduler = StepLR(optimizer, step_size=18, gamma=0.1)
+        scheduler = StepLR(optimizer, step_size=12, gamma=0.2)
         # scheduler = ReduceLROnPlateau(optimizer, factor=0.2, patience=5)
         return {
            'optimizer': optimizer,

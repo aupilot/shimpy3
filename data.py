@@ -58,7 +58,7 @@ class ShimpyDataModule(LightningDataModule):
 
             self.train_dataset = ConcatDataset(train_datasets)
             self.valid_dataset = ShimpyDataset(fold_no=test_fold, folds=self.folds, transforms=None, random=random, image_size=self.image_size)
-            indices = torch.arange(len(self.valid_dataset)//2)       # lets cut the valid dataset twice to speed up
+            indices = torch.arange(len(self.valid_dataset)//8)       # lets cut the valid dataset twice to speed up
             self.valid_dataset = torch.utils.data.Subset(self.valid_dataset, indices)
         else:
             self.train_dataset = ShimpyDataset(fold_no=0, folds=1, transforms=None, random=random, image_size=self.image_size)
@@ -153,16 +153,28 @@ class ShimpyDataset(Dataset):
         meta = pd.read_csv(meta_file, skipinitialspace=True)
         labels = pd.read_csv(labels_file, skipinitialspace=True)
 
+        # pandas sucks. indeces are shit
+        labels = labels.sort_values(by=['video_id', 'time'])
+        labels = labels.reset_index(drop=True)
+        meta = meta.sort_values(by=['video_id', 'time'])
+        meta = meta.reset_index(drop=True)
 
         # TODO: instead of dropping set class 0 and box to 0..1, 0..1. But then we need to shift classes (no +1)
 
         # drop all frames with nans
         idx_nans = meta[pd.isnull(meta['x1'])].index
-        # labels.drop(idx_nans, inplace=True)
-        # meta.drop(idx_nans, inplace=True)
+        labels.drop(idx_nans, inplace=True)
+        meta.drop(idx_nans, inplace=True)
         # we don't drop - we replace bbox withg full screen instead
-        meta.at[idx_nans, ['x1', 'y1']] = 0.0
-        meta.at[idx_nans, ['x2', 'y2']] = 1.0
+        # meta.at[idx_nans, ['x1', 'y1']] = 0.0
+        # meta.at[idx_nans, ['x2', 'y2']] = 1.0
+
+        # drop frames with extra low probability
+        # idx_bad = meta[meta['probability'] < 0.05].index
+
+        idx_bad = meta[meta['probability'] < 0.28].index
+        labels.drop(idx_bad, inplace=True)
+        meta.drop(idx_bad, inplace=True)
 
         # TODO: fine tune what we should drop @@@@@@@@@@@@@@@@
         # drop all frames with probability less than 0.03 or 0.05?
@@ -406,13 +418,12 @@ def test_test_dataset():
     # [*boxes] = sample[1]
     # image = sample[0]
 
-    for aa in range(10):
+    for aa in range(50):
         image, target = ds[aa]
         image = image.numpy()
         # for box in target['boxes']:
         box = target['bboxes']
         cv2.rectangle(image, (int(box[0,0]), int(box[0,1])), (int(box[0,2]), int(box[0,3])), (0, 1, 0), 2)
-
         cv2.imshow(f"class {target['labels'][0].numpy()}", image)
         # cv2.imshow(f"class {sample['category_ids'][0].item()}", image)
         cv2.waitKey(0)
