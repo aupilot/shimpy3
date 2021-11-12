@@ -1,13 +1,18 @@
 import pandas as pd
 import numpy as np
 
+# pred_list = [
+#     'sub_m4-new-crop.csv',
+#     'sub_m10-new-dataloader.csv',
+#     'sub_m11-new-dl-onefold.csv',
+#     'sub_m12-bug-fixed.csv',
+#     ]
+
 pred_list = [
     'sub_m13-0.csv',
     'sub_m13-1.csv',
     'sub_m13-2.csv',
     'sub_m13-3.csv',
-    # 'sub_m2-fold2.csv',
-    # 'sub_m5-highres.csv',
     ]
 
 # labels['distance'].unique()
@@ -32,7 +37,7 @@ new_submit = []
 
 for index, row in dff[0].iterrows():
     dist = row['distance']
-    for df in dff[2:]:
+    for df in dff[1:]:
         tmp = df.loc[(df['video_id'] == row['video_id']) & (df['time'] == row['time'])]
         dist = dist + tmp['distance'].item()
     dist = dist / n_combine
@@ -41,6 +46,6 @@ for index, row in dff[0].iterrows():
     new_submit.append([row['video_id'], row['time'], dist])
 
 new_df = pd.DataFrame(new_submit, columns=['video_id','time','distance'])
-new_df.to_csv("sub_combined_13.csv", index=False)
+new_df.to_csv("sub_combined_13_fixed.csv", index=False)
 
 
