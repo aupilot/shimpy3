@@ -17,8 +17,18 @@ colorama.init(strip=False)
 import warnings
 warnings.filterwarnings("ignore")
 
-chp = r"\C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_16\checkpoints\epoch=25-step=32785.ckpt"
-output_name = "m12-bug-fixed"
+
+chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_21\checkpoints\epoch=26-step=13472.ckpt"
+output_name = "m13-3"
+
+# chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_20\checkpoints\epoch=27-step=14167.ckpt"
+# output_name = "m13-2"
+
+# chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_19\checkpoints\epoch=27-step=13719.ckpt"
+# output_name = "m13-1"
+
+# chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_18\checkpoints\epoch=27-step=13747.ckpt"
+# output_name = "m13-0"
 
 # chp = r"C:\Users\kir\Documents\Python\Shimpy3\lightning_logs\version_15\checkpoints\epoch=25-step=24673.ckpt"
 # output_name = "m10-new-dataloader"

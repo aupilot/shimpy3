@@ -9,9 +9,9 @@ from pytorch_lightning import Trainer
 
 
 
-N_FOLDS = 1
+N_FOLDS = 4
 BS = 24
-EPOCHS = 2
+EPOCHS = 28
 if __name__ == '__main__':
     image_size = [512, 512]
 
